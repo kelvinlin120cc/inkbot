@@ -1,0 +1,2585 @@
+<!DOCTYPE html>
+<!-- InkBoard 管理端 · 手机/电脑打开 · 全内联零外部依赖 · ES5 兼容 -->
+<html lang="zh-CN" data-page-node-id="NYnPokPHOaoMPkHYwOjeLY">
+<head data-page-node-id="ON5c0JeGnAPfIUh64z4Oxy">
+<meta charset="utf-8" data-page-node-id="aSNG9kOFy8IXAHfkhQh8tQ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" data-page-node-id="0cnl8mLyyAaWKrBNopfNo8">
+<title>InkBoard 管理端</title>
+<style>
+:root{
+  --ink:#111418; --line:#e3e6ea; --line2:#cfd4da; --bg:#f6f7f9;
+  --card:#ffffff; --muted:#6b7280; --accent:#111418;
+  --danger:#d92d20; --ok:#067647;
+
+  /* ===== 布局令牌 ===== */
+  --nav-w:0px;          /* 侧边导航宽度；手机/平板为 0（用底部 Tab） */
+  --w-main:760px;       /* 内容区最大宽度 */
+  --pad-side:16px;      /* 页面左右留白 */
+  --pad-card:14px;      /* 卡片内边距 */
+  --safe-b:78px;        /* 底部避让高度（底部 Tab 用） */
+
+  /* ===== 字号令牌（手机默认：触摸友好）===== */
+  --fs-body:16px;
+  --fs-h1:18px;
+  --fs-sub:12px;
+  --fs-h2:14px;
+  --fs-label:13px;
+  --fs-input:16px;      /* iOS 聚焦时 <16px 会整页放大：触摸端必须保持 16px */
+  --fs-btn:15px;
+  --fs-btn-sm:14px;
+  --fs-item1:16px;
+  --fs-item2:12.5px;
+  --fs-tag:11.5px;
+  --fs-hint:12.5px;
+  --fs-compnm:16px;
+  --fs-mini:13px;
+  --fs-nav:11px;
+  --fs-toast:14px;
+  --fs-empty:14px;
+
+  /* ===== 控件尺寸令牌 ===== */
+  --h-btn:44px;
+  --h-btn-sm:36px;
+  --h-input:46px;
+  --h-icon:40px;
+  --h-nav:56px;
+  --h-mini:34px;
+  --h-range:44px;
+  --h-sw:46px;
+  --ico-nav:22px;
+  --ico-btn:20px;
+  --ico-mini:16px;
+  --w-toggle:52px;
+  --h-toggle:30px;
+  --d-toggle:24px;
+}
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; }
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,sans-serif;
+  font-size:var(--fs-body); line-height:1.5;
+  padding-left:var(--nav-w);
+  padding-bottom:calc(var(--safe-b) + env(safe-area-inset-bottom));
+}
+svg{ display:block; }
+code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  font-size:0.88em; background:#eef1f4; color:#374151;
+  padding:1px 5px; border-radius:5px; word-break:break-all;
+}
+
+/* ---------- 顶栏 ---------- */
+header{
+  position:sticky; top:0; z-index:20; background:var(--card);
+  border-bottom:1px solid var(--line);
+  padding:12px var(--pad-side) 12px var(--pad-side);
+  padding-top:calc(12px + env(safe-area-inset-top));
+}
+.hrow{ display:flex; align-items:center; gap:10px; }
+header h1{ font-size:var(--fs-h1); font-weight:800; letter-spacing:-0.01em; }
+header .sub{ font-size:var(--fs-sub); color:var(--muted); margin-top:2px; }
+.hbtns{ margin-left:auto; display:flex; gap:8px; }
+.iconbtn{
+  width:var(--h-icon); height:var(--h-icon); border:1px solid var(--line2); background:#fff; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink);
+}
+.iconbtn:active{ background:#eef0f3; }
+.iconbtn svg{ width:var(--ico-btn); height:var(--ico-btn); }
+
+/* ---------- 备份条（首屏可见，不藏设置里） ---------- */
+.backup{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  background:#fff; border:1px solid var(--line); border-radius:12px;
+  padding:10px 12px; margin:12px var(--pad-side) 0 var(--pad-side);
+}
+.backup .lbl{ font-size:var(--fs-label); color:var(--muted); }
+.backup .sp{ margin-left:auto; }
+
+/* ---------- 容器 ---------- */
+main{ max-width:var(--w-main); margin:0 auto; padding:12px var(--pad-side) 24px var(--pad-side); }
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:var(--pad-card); margin-top:12px;
+}
+.card h2{
+  font-size:var(--fs-h2); font-weight:800; letter-spacing:0.02em; color:var(--muted);
+  text-transform:uppercase; margin-bottom:10px;
+}
+.hint{ font-size:var(--fs-hint); color:var(--muted); margin-top:8px; line-height:1.6; }
+
+/* ---------- 按钮 ---------- */
+.btn{
+  min-height:var(--h-btn); padding:0 16px; border-radius:10px; border:1px solid var(--ink);
+  background:var(--ink); color:#fff; font-size:var(--fs-btn); font-weight:600; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+}
+.btn:active{ opacity:0.82; }
+.btn.ghost{ background:#fff; color:var(--ink); border-color:var(--line2); font-weight:500; }
+.btn.sm{ min-height:var(--h-btn-sm); padding:0 12px; font-size:var(--fs-btn-sm); }
+.btn.danger{ background:#fff; color:var(--danger); border-color:#f3c2bd; }
+.btn.block{ width:100%; }
+
+/* ---------- 表单 ---------- */
+.field{ margin-top:12px; }
+.field label{ display:block; font-size:var(--fs-label); font-weight:700; color:var(--muted); margin-bottom:6px; }
+input[type=text], input[type=number], input[type=date], input[type=time], textarea, select{
+  width:100%; min-height:var(--h-input); padding:11px 12px; font-size:var(--fs-input); font-family:inherit;
+  border:1px solid var(--line2); border-radius:10px; background:#fff; color:var(--ink);
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+textarea{ min-height:80px; resize:vertical; line-height:1.5; }
+input:focus, textarea:focus, select:focus{ border-color:var(--ink); }
+input[type=range]{ width:100%; height:var(--h-range); padding:0; border:none; background:transparent; }
+.inline{ display:flex; gap:8px; }
+.inline > *{ flex:1; }
+
+/* 开关 */
+.sw{ display:flex; align-items:center; justify-content:space-between; min-height:var(--h-sw); gap:12px; padding:2px 0; }
+.sw .t{ font-size:var(--fs-btn); }
+.sw .toggle{
+  position:relative; width:var(--w-toggle); height:var(--h-toggle); border-radius:999px; background:#d3d7dd;
+  border:none; cursor:pointer; flex:none; transition:background .18s;
+}
+.sw .toggle::after{
+  content:''; position:absolute; top:3px; left:3px; width:var(--d-toggle); height:var(--d-toggle);
+  border-radius:50%; background:#fff; transition:transform .18s;
+}
+.sw .toggle.on{ background:var(--ink); }
+.sw .toggle.on::after{ transform:translateX(calc(var(--w-toggle) - var(--d-toggle) - 6px)); }
+
+/* ---------- 列表项 ---------- */
+.item{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:12px 0; border-bottom:1px solid var(--line);
+}
+.item:last-child{ border-bottom:none; }
+.item .body{ flex:1; min-width:0; }
+.item .t1{ font-size:var(--fs-item1); font-weight:600; word-break:break-all; white-space:pre-wrap; }
+.item .t2{ font-size:var(--fs-item2); color:var(--muted); margin-top:3px; }
+.item .ops{ display:flex; gap:6px; flex:none; }
+.tag{
+  display:inline-block; font-size:var(--fs-tag); font-weight:700; padding:2px 7px; border-radius:6px;
+  background:#eef0f3; color:var(--muted); margin-left:6px; vertical-align:1px;
+}
+.tag.red{ background:#fdeceb; color:var(--danger); }
+.tag.green{ background:#e7f6ee; color:var(--ok); }
+.tag.blue{ background:#e7f0fb; color:#2b6cb0; }
+.done .t1{ text-decoration:line-through; color:var(--muted); }
+
+/* 组件卡 */
+.comp{
+  border:1px solid var(--line); border-radius:12px; padding:0; margin-bottom:10px; overflow:hidden;
+}
+.comp.off{ opacity:0.5; }
+.comp .ch{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px; background:#fafbfc; }
+.comp .ch .nm{ font-size:var(--fs-compnm); font-weight:700; }
+.comp .ch .chops{ display:flex; gap:10px; margin-left:auto; flex:none; }
+.comp .cb{ padding:4px 12px 12px 12px; }
+.mini{
+  width:var(--h-mini); height:var(--h-mini); border:1px solid var(--line2); background:#fff; border-radius:8px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink); flex:none;
+}
+.mini:active{ background:#eef0f3; }
+.mini[disabled]{ opacity:0.3; cursor:default; }
+.mini svg{ width:var(--ico-mini); height:var(--ico-mini); }
+.mini.danger{ color:var(--danger); border-color:#f3c2bd; }
+.mini.danger:active{ background:#fdeceb; }
+/* 文本迷你按钮（用于「保存当前字号为缺省」「恢复缺省字号」等带文字的按钮）：
+   覆盖 .mini 的固定宽高，加入左右内边距让文字完整显示 */
+.mini.txt{ width:auto; padding:0 14px; font-size:var(--fs-btn-sm); font-weight:600; font-family:inherit; }
+.mini.txt[disabled]{ opacity:.4; cursor:default; }
+
+/* 宽度档位下拉：紧跟组件名，不改变行高 */
+.spanSel{
+  flex:none; height:var(--h-mini); padding:0 6px; font-size:var(--fs-mini); font-family:inherit;
+  border:1px solid var(--line2); border-radius:8px; background:#fff; color:var(--ink);
+  cursor:pointer; -webkit-appearance:none; appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),
+                   linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+  background-size:5px 5px, 5px 5px; background-repeat:no-repeat;
+  padding-right:22px;
+}
+
+/* ---------- 组件库（卡片式，点击即添加） ---------- */
+.complib{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(158px, 1fr)); gap:10px;
+}
+.libcard{
+  position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:5px;
+  padding:12px; text-align:left; cursor:pointer; font-family:inherit;
+  border:1px solid var(--line2); border-radius:12px; background:#fff; color:var(--ink);
+  min-height:var(--h-btn); transition:border-color .15s, background .15s;
+}
+.libcard:hover{ border-color:var(--ink); background:#fafbfc; }
+.libcard:active{ background:#eef0f3; }
+.libcard .licon{ color:var(--ink); opacity:0.72; }
+.libcard .licon svg{ width:22px; height:22px; }
+.libcard .lname{ font-size:var(--fs-body); font-weight:700; }
+.libcard .ldesc{ font-size:var(--fs-hint); color:var(--muted); line-height:1.45; }
+.libcard .lbadge{
+  font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px;
+  background:#eef0f3; color:var(--muted); margin-top:2px;
+}
+
+/* ---------- 底部 Tab（手机 / 平板） ---------- */
+nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  display:flex; background:#fff; border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav::before{ content:none; }   /* 桌面端才显示栏目标题 */
+nav button{
+  flex:1; min-height:var(--h-nav); border:none; background:none; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:var(--fs-nav); color:var(--muted); font-family:inherit;
+}
+nav button svg{ width:var(--ico-nav); height:var(--ico-nav); }
+nav button.on{ color:var(--ink); font-weight:700; }
+
+/* ---------- 提示 ---------- */
+#toast{
+  position:fixed; left:50%; bottom:88px; transform:translateX(-50%) translateY(12px);
+  background:var(--ink); color:#fff; padding:10px 18px; border-radius:999px;
+  font-size:var(--fs-toast); font-weight:600; opacity:0; pointer-events:none; z-index:60;
+  transition:opacity .2s, transform .2s; white-space:nowrap;
+}
+#toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.err{ background:var(--danger); }
+
+.empty{ text-align:center; color:var(--muted); font-size:var(--fs-empty); padding:22px 0; }
+hr.sep{ border:none; border-top:1px solid var(--line); margin:14px 0; }
+
+/* ============================================================
+   断点 1：平板 / 大屏手机（≥720px）—— 内容加宽，双列表单
+   ============================================================ */
+@media (min-width: 720px){
+  :root{
+    --w-main:900px;
+    --pad-side:22px;
+    --pad-card:16px;
+  }
+  .row2{ display:flex; gap:12px; }
+  .row2 > *{ flex:1; }
+}
+
+/* ============================================================
+   断点 2：PC / 平板横屏（≥1100px）—— 左侧导航 + 双列栅格 + PC 字号
+   ============================================================ */
+@media (min-width: 1100px){
+  :root{
+    /* 布局：左侧导航占位，内容区大幅加宽 */
+    --nav-w:212px;
+    --w-main:1180px;
+    --pad-side:24px;
+    --pad-card:18px;
+    --safe-b:24px;
+
+    /* 字号：收敛到 PC 常规尺寸 */
+    --fs-body:14px;
+    --fs-h1:16px;
+    --fs-sub:12px;
+    --fs-h2:12.5px;
+    --fs-label:12.5px;
+    --fs-input:13.5px;   /* PC 无 iOS 自动缩放问题，可收小 */
+    --fs-btn:13.5px;
+    --fs-btn-sm:13px;
+    --fs-item1:14px;
+    --fs-item2:12px;
+    --fs-tag:11px;
+    --fs-hint:12px;
+    --fs-compnm:14px;
+    --fs-mini:12.5px;
+    --fs-nav:13.5px;
+    --fs-toast:13px;
+    --fs-empty:13.5px;
+
+    /* 控件：鼠标操作不需要触摸级尺寸 */
+    --h-btn:34px;
+    --h-btn-sm:30px;
+    --h-input:34px;
+    --h-icon:34px;
+    --h-nav:40px;
+    --h-mini:30px;
+    --h-range:30px;
+    --h-sw:34px;
+    --ico-nav:18px;
+    --ico-btn:17px;
+    --ico-mini:15px;
+    --w-toggle:44px;
+    --h-toggle:26px;
+    --d-toggle:20px;
+  }
+
+  /* 底部 Tab → 左侧固定侧边导航 */
+  nav{
+    top:0; bottom:0; left:0; right:auto; width:var(--nav-w);
+    flex-direction:column; align-items:stretch; gap:2px;
+    border-top:none; border-right:1px solid var(--line);
+    padding:12px 10px calc(12px + env(safe-area-inset-bottom)) 10px;
+    padding-top:calc(12px + env(safe-area-inset-top));
+  }
+  nav::before{
+    content:'管理面板';
+    display:block; font-size:10.5px; font-weight:800; letter-spacing:0.12em;
+    color:var(--muted); text-transform:uppercase; padding:6px 12px 10px 12px;
+  }
+  nav button{
+    flex:none; width:100%; min-height:var(--h-nav);
+    flex-direction:row; justify-content:flex-start; gap:10px;
+    padding:0 12px; border-radius:9px;
+  }
+  nav button:hover{ background:#f2f4f7; }
+  nav button.on{ background:#e9edf1; }
+  nav button.on:hover{ background:#e3e8ed; }
+
+  /* 顶栏内容与内容区对齐 */
+  .hrow{ max-width:var(--w-main); margin:0 auto; }
+  .backup{ max-width:var(--w-main); margin:12px auto 0 auto; }
+
+  /* 卡片双列栅格：待办/日程/留言「新增 + 列表」并排，设置页 2×2 */
+  main section{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(430px, 1fr));
+    gap:14px; align-items:start;
+  }
+  main .card{ margin-top:0; }
+
+  /* 组件页特殊处理：组件列表本身很长，改为内部双列，避免右侧大片空白。
+     组件顺序语义靠上移/下移按钮维护，双列不影响。 */
+  #tab-comp{ grid-template-columns:1fr; }
+  #compList{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(430px, 1fr));
+    gap:10px; align-items:start;
+  }
+  #compList .comp{ margin-bottom:0; }
+  .comp .ch{ padding:10px 12px; }
+  /* 组件库在宽屏下放宽卡片，避免说明文字挤成竖条 */
+  .complib{ grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); }
+
+  /* 表单内边距同步收紧，否则 padding 会把 min-height 顶上去实高仍偏大 */
+  input[type=text], input[type=number], input[type=date], input[type=time], select{
+    padding:6px 10px;
+  }
+  textarea{ padding:8px 10px; min-height:96px; }
+
+  /* 鼠标悬停反馈（触摸端不需要） */
+  .btn:hover{ opacity:0.88; }
+  .btn:active{ opacity:0.72; }
+  .mini:hover{ background:#f2f4f7; }
+  .iconbtn:hover{ background:#f2f4f7; }
+  input[type=text]:hover, input[type=number]:hover, input[type=date]:hover,
+  input[type=time]:hover, textarea:hover, select:hover{ border-color:#b9c0c7; }
+
+  #toast{ bottom:26px; }
+}
+
+/* ============ 布局模拟器（MatePad Paper 画布） ============ */
+.sim-bar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.sim-bar .seg{ display:inline-flex; border:1px solid var(--line2); border-radius:10px; overflow:hidden; }
+.sim-bar .seg button{
+  min-height:var(--h-btn-sm); padding:0 16px; border:0; background:#fff; color:var(--ink);
+  font-size:var(--fs-btn-sm); font-weight:600; cursor:pointer; border-right:1px solid var(--line);
+}
+.sim-bar .seg button:last-child{ border-right:0; }
+.sim-bar .seg button.on{ background:var(--ink); color:#fff; }
+.sim-sp{ flex:1 1 auto; }
+.sim-hint{ font-size:var(--fs-hint); color:var(--muted); line-height:1.7; }
+.sim-wrap{
+  position:relative; width:100%; margin-top:12px; background:#eceef1;
+  border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  padding:14px; display:flex; justify-content:center;
+}
+#simCanvas{
+  position:relative; background:#fff; border:1px solid var(--line2);
+  transform-origin:top center; flex:none; box-shadow:0 6px 24px rgba(0,0,0,0.10);
+}
+#simCanvas .sbox{
+  position:absolute; border:2px solid #9aa1ab; background:rgba(17,20,24,0.045);
+  border-radius:10px; touch-action:none; cursor:grab;
+  display:flex; align-items:center; justify-content:center;
+}
+#simCanvas .sbox.sel{ border-color:var(--ink); background:rgba(17,20,24,0.10); cursor:grabbing; }
+#simCanvas .sbox.off{ opacity:0.4; }
+#simCanvas .sbox .slab{
+  position:absolute; top:0; left:0; right:0; padding:8px 12px;
+  font-size:22px; font-weight:800; color:var(--ink); letter-spacing:0.02em;
+  background:linear-gradient(rgba(255,255,255,0.92), rgba(255,255,255,0.6));
+  border-bottom:1px dashed rgba(17,20,24,0.15); white-space:nowrap; overflow:hidden;
+}
+#simCanvas .sbox .sdim{
+  position:absolute; bottom:6px; right:10px; font-size:18px; color:var(--muted);
+  font-variant-numeric:tabular-nums; background:rgba(255,255,255,0.8); padding:0 6px; border-radius:4px;
+}
+#simCanvas .handle{
+  position:absolute; width:30px; height:30px; background:var(--ink); border:3px solid #fff;
+  border-radius:50%; touch-action:none; box-shadow:0 1px 4px rgba(0,0,0,0.3);
+  /* 常显（半透明）：触屏没有 hover，首次点按即可直接抓手柄缩放；选中后加深 */
+  display:block; opacity:0.32;
+}
+#simCanvas .sbox.sel .handle{ opacity:1; }
+.h-nw{ left:-16px; top:-16px; cursor:nwse-resize; }
+.h-n { left:50%;  top:-16px; margin-left:-15px; cursor:ns-resize; }
+.h-ne{ right:-16px;top:-16px; cursor:nesw-resize; }
+.h-e { right:-16px;top:50%; margin-top:-15px; cursor:ew-resize; }
+.h-se{ right:-16px;bottom:-16px; cursor:nwse-resize; }
+.h-s { left:50%;  bottom:-16px; margin-left:-15px; cursor:ns-resize; }
+.h-sw{ left:-16px; bottom:-16px; cursor:nesw-resize; }
+.h-w { left:-16px; top:50%; margin-top:-15px; cursor:ew-resize; }
+.sim-empty{ padding:40px 16px; text-align:center; color:var(--muted); font-size:var(--fs-empty); }
+
+/* ===== 多选 / 框选 / 对齐 ===== */
+/* 已被选中（不论 1 个还是多个）：加深边框，更醒目 */
+#simCanvas .sbox.sel{
+  border-color:var(--ink);
+  background:rgba(17,20,24,0.10);
+  box-shadow:0 0 0 2px rgba(17,20,24,0.18);
+  z-index:2;
+}
+/* 框选过程中被命中的预览态 */
+#simCanvas .sbox.preview{ border-color:var(--ink); background:rgba(17,20,24,0.06); }
+/* 框选虚线选区 */
+#simCanvas .marquee{
+  position:absolute; border:1px dashed var(--ink); background:rgba(17,20,24,0.06);
+  pointer-events:none; z-index:3;
+}
+/* 多选工具条（在画布下方出现） */
+.sim-multi-bar{
+  margin-top:10px; padding:10px 12px; background:#eef4ff; border:1px solid #c9d8f5;
+  border-radius:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  font-size:var(--fs-hint); color:var(--ink);
+}
+.sim-multi-bar .grp{
+  display:inline-flex; gap:6px; align-items:center;
+  padding-right:10px; border-right:1px solid #c9d8f5;
+}
+.sim-multi-bar .grp:last-child{ border-right:0; padding-right:0; }
+.sim-multi-bar .lbl{ color:var(--muted); font-weight:700; font-size:11px; }
+.sim-multi-bar input[type=number]{
+  width:62px; min-height:30px; padding:4px 6px; font-size:13px;
+  text-align:right; font-family:inherit;
+  border:1px solid var(--line2); border-radius:6px; background:#fff; color:var(--ink);
+  outline:none; -webkit-appearance:none; appearance:none;
+}
+.sim-multi-bar input[type=number]:focus{ border-color:var(--ink); }
+.sim-multi-bar button.ali{
+  min-height:30px; padding:0 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+  border:1px solid var(--line2); border-radius:6px; background:#fff; color:var(--ink); font-family:inherit;
+}
+.sim-multi-bar button.ali:active{ background:#eef0f3; }
+.sim-multi-bar button.ali[disabled]{ opacity:0.4; cursor:default; }
+.sim-multi-bar .count{
+  padding:4px 10px; background:#dbe7fb; border-radius:6px; font-weight:700; font-size:12px;
+}
+.sim-multi-bar button.clear{ color:var(--danger); border-color:#f3c2bd; }
+.sim-multi-bar button.clear:active{ background:#fdeceb; }
+.sim-multi-bar .sep{ display:inline-block; width:1px; height:18px; background:#c9d8f5; }
+
+</style>
+</head>
+<body data-page-node-id="NWRxwzzCvxK5FYusomFSkL">
+
+<header data-page-node-id="DZSKslvyxDEuVwXkJzLOLY">
+  <div class="hrow" data-page-node-id="kbJILp5lrBcbcVBlM321BJ">
+    <div data-page-node-id="Hy57WRneGXgFXKUHBS7mm8">
+      <h1 data-page-node-id="8w4dBA516CvfSCmP4Mmsce">InkBoard 家庭信息台</h1>
+      <div class="sub" id="hsub" data-page-node-id="7VF6780r4uhgxKnrNoT8Nx">载入中…</div>
+    </div>
+    <div class="hbtns" data-page-node-id="VtRBUG2klOItakVw6Xt3Ri">
+      <button class="iconbtn" id="btnOpen" title="打开显示端" data-page-node-id="m3LJ8WX8tycCOfXvrLVNYH">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="TirwxoknRFduvZqf6D2zXv"><path d="M3 5h18v14H3z" data-page-node-id="2I3ytD78svX1UnmDnO41UC"/><path d="M9 19h6" data-page-node-id="2yPsxJ3vI0wwOdO0tFVH4X"/></svg>
+      </button>
+      <button class="iconbtn" id="btnRefresh" title="刷新" data-page-node-id="bH5Lo8ZH5x8u5SuLfo6Q2l">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="zc9KjW3x1UPolOcCOUvaQE"><path d="M20 12a8 8 0 1 1-2.3-5.6" data-page-node-id="iYYBkHMhwtVl10J8uzkWPS"/><path d="M20 4v5h-5" data-page-node-id="ZNLKnNIWFVzUDbUOBvhCV0"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="backup" data-page-node-id="eCgjUMd8AZIvfAmBlBCFvP">
+  <span class="lbl" data-page-node-id="0YHtnVj12oebSkACenzUxF">数据备份</span>
+  <button class="btn ghost sm" id="btnExport" data-page-node-id="bkHdcHrfPTjTuC1WAXDISX">导出 JSON</button>
+  <button class="btn ghost sm" id="btnImport" data-page-node-id="OsjItVg4CohV4sIGniD2E5">导入恢复</button>
+  <span class="sp" data-page-node-id="ENixERyBFeDXr8pwZ9bHX0"></span>
+  <span class="lbl" id="statTxt" data-page-node-id="qQA8MRGB9r8Lio1lkW9Uee">—</span>
+</div>
+<input type="file" id="fileIn" accept=".json,application/json" style="display:none" data-page-node-id="yyXoPaYnH2r2tZQzn6SYUT">
+
+<main data-page-node-id="zrsxl76e9KGid6Bw4RKFvv">
+  <!-- ========== 组件 ========== -->
+  <section id="tab-comp" data-page-node-id="OWpwCxEe0NZZJdOlzqCZU4">
+    <div class="card" data-page-node-id="HGQkmz7SlaJgmCTbwkAWSP">
+      <h2 data-page-node-id="nKyGFkYI2EPXSTdmziy58u">显示组件 <span class="tag" id="compCnt" data-page-node-id="TESXZcDADrHHNK7SXDsgys">0</span></h2>
+      <div id="fontDefBar" style="display:flex;gap:.5em;flex-wrap:wrap;align-items:center;margin:.1em 0 .7em" data-page-node-id="RZyA2ZNuC75asKd2oXoMrj">
+        <button class="mini txt" id="btnSaveFontDef" title="把当前所有组件正在使用的字号保存为缺省值" data-page-node-id="36ClQH41iA4IYars5tZGGf">保存当前字号为缺省</button>
+        <button class="mini txt" id="btnRestoreFontDef" title="把所有组件的字号恢复到已保存的缺省值" data-page-node-id="xX1aHMiOOzLhDiL7dPXHle">恢复缺省字号</button>
+        <span class="hint" id="fontDefInfo" style="margin:0;white-space:nowrap" data-page-node-id="61aU4RPPIBxaP0wPZxpqOX"></span>
+      </div>
+      <div id="compList" data-page-node-id="tdnWP75KmGdioHGWw5dGiS"></div>
+      <div class="hint" data-page-node-id="V23tA5G2Qj0GsfYg4a1iIY">用箭头调整顺序，右侧开关可临时隐藏、垃圾桶彻底移除。改动后墨水屏最长 30 秒自动更新。</div>
+    </div>
+    <div class="card" data-page-node-id="DCAQitrqaIBcbjRmw11AUs">
+      <h2 data-page-node-id="NL6LkWLGJprayOMAoGDHbI">组件库</h2>
+      <div id="compLib" class="complib" data-page-node-id="rVFM4nespFVpAVWzoytHJe"></div>
+      <div class="hint" data-page-node-id="9jaYmwkxml5EO8CFqTuw2U">点击即可添加到信息台。倒计时、自定义文字可重复添加多个；每种组件最多 12 个。宽度默认「自动」，会按屏幕方向智能分栏，也可手动指定。</div>
+    </div>
+  </section>
+
+  <!-- ========== 待办 ========== -->
+  <section id="tab-todo" style="display:none" data-page-node-id="kuE8o6Ki5AWTHxhzfJH096">
+    <div class="card" data-page-node-id="wCGgT1Ouj6T5TkwxrqIXjT">
+      <h2 data-page-node-id="3blyQKdFILHxLDrtjvrTqf">新增待办</h2>
+      <div class="field" data-page-node-id="WhpCpIpXy5AyXThJ3jrwQG">
+        <input type="text" id="todoText" placeholder="要做什么？" maxlength="120" data-page-node-id="2NpuzS30LqW1QwX66CD8KX">
+      </div>
+      <div class="field inline" data-page-node-id="W3U2vuuhtQpnbGfVSf7yBI">
+        <input type="date" id="todoDue" data-page-node-id="e1kSoC80vG7xkHxUvd6epM">
+        <button class="btn ghost" id="btnToday" style="flex:0 0 84px" data-page-node-id="AX7HpmeDbrMoE3qumk8btQ">今天</button>
+        <button class="btn ghost" id="btnNoDue" style="flex:0 0 84px" data-page-node-id="E0BRxS2SfTmex9Kyra4HFP">无期限</button>
+      </div>
+      <button class="btn block" id="btnAddTodo" style="margin-top:12px" data-page-node-id="kqaV7dPCUy0rrspHby5JnZ">添加待办</button>
+      <div class="hint" data-page-node-id="PdflUw0aTzvFvDl7GeCK7S">逾期项会在墨水屏上以「反白块」高亮并置顶；昨天没做完的自动顺延到今天，不会消失。</div>
+    </div>
+    <div class="card" data-page-node-id="pF7RhiVmVsEk2l2q07JddP">
+      <h2 data-page-node-id="dsfju0rlbeuHwUqirpZZQr">待办清单 <span class="tag" id="todoCnt" data-page-node-id="R981G6ZpL2xPNsOJ6EvYAD">0</span></h2>
+      <div id="todoList" data-page-node-id="sDFE0lrc9QlrMfduTgvMct"></div>
+      <hr class="sep" data-page-node-id="fwsqgXZu8EPk4g9YrEhs3x">
+      <button class="btn danger block sm" id="btnClearDone" style="min-height:44px" data-page-node-id="JoTum5N8kkFBZz9lHnPwSb">清除已完成</button>
+    </div>
+  </section>
+
+  <!-- ========== 家庭作业 ========== -->
+  <section id="tab-hw" style="display:none" data-page-node-id="nLg4oa1CEc7COkBDNxel1F">
+    <div class="card" data-page-node-id="1lz889JBqWc4eF0tRXrzUo">
+      <h2 data-page-node-id="6p6nG502HGodkcPHDlCh6U">新增作业</h2>
+      <div class="field" data-page-node-id="5nlPLMDeLf2WVq8HDupuM1">
+        <input type="text" id="hwText" placeholder="作业内容，如「数学练习册 P12-15」" maxlength="110" data-page-node-id="cswPHtVzdr2A5FAA0betkj">
+      </div>
+      <div class="field" data-page-node-id="Wa0RI4ltMZqtIsIvyhmgmz">
+        <input type="text" id="hwTeacher" placeholder="布置老师（可留空）" maxlength="16" data-page-node-id="mZwXEIN87YHRxcsfjbLB8j">
+      </div>
+      <div class="field" data-page-node-id="mVPA7jPKHsAzVTNtHbICQI">
+        <input type="text" id="hwSubject" placeholder="科目（可留空，如 语文/数学）" maxlength="10" data-page-node-id="AtQZ6VXdYO91fHk3NOyTd6">
+      </div>
+      <div class="field inline" data-page-node-id="HfzfHVqKCMURFQy6inbqs1">
+        <input type="date" id="hwDue" data-page-node-id="sn8Fjc5rM6IWfkBB9yeWT1">
+        <button class="btn ghost" id="hwBtnToday" style="flex:0 0 84px" data-page-node-id="5aeBfLN8X6fnUufK2n8mQs">今天</button>
+        <button class="btn ghost" id="hwBtnNoDue" style="flex:0 0 84px" data-page-node-id="kbDICYWCwkuEC8tEDqlJSG">无期限</button>
+      </div>
+      <button class="btn block" id="btnAddHw" style="margin-top:12px" data-page-node-id="LceygsrOqxJh3YJKH6wFPo">添加作业</button>
+      <button class="btn ghost block sm" id="hwCancelEdit" style="margin-top:8px;display:none" data-page-node-id="bL2koZh3EjbtWjcLhW2tYy">取消编辑</button>
+      <div class="hint" data-page-node-id="NAKqxTB6Oud5gCqa2VUMXw">QQ 里转发老师消息到机器人后，会自动出现在这里（来源标注 QQ）。逾期项以「反白块」高亮并置顶。点列表里的编辑按钮可修改任一条。</div>
+    </div>
+    <div class="card" data-page-node-id="oG2GF8j5cplOTCJyvbLlvT">
+      <h2 data-page-node-id="JjwLGyB7X3QxLRKzCFbFh3">AI 格式化录入</h2>
+      <div class="hint" data-page-node-id="TcQEgiPTlnrRRQrdTY0ipm">粘贴作业原文，并可写格式化要求（如「按科目分组、每条不超过 20 字」）。点「格式化」调用 qq-homework-bot 的大模型理解并拆条，预览确认后一键加入看板。</div>
+      <div class="field" data-page-node-id="PlkeCI2fZHbMtjynVx8GoK">
+        <textarea id="hwFormatInput" placeholder="例：&#10;语文：背诵第5课古诗三首，周五前&#10;数学：练习册 P12-15，周一交&#10;要求：按科目分组，每条一句话给孩子看" style="min-height:120px;width:100%;font-size:16px;padding:10px;border:1px solid #ddd;border-radius:10px;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <button class="btn block" id="btnFormatHw" style="margin-top:10px" data-page-node-id="RntBgCD2JFOrCjM2QDsfgv">格式化（调用大模型）</button>
+      <div id="hwFormatStatus" class="hint" style="margin-top:8px" data-page-node-id="bmPNee77gL5Bm9uQaqHCNX"></div>
+      <div id="hwFormatPreview" data-page-node-id="Cek0X6jQslJ2P4tKSjM20s"></div>
+      <button class="btn block" id="btnFormatAdd" style="margin-top:10px;display:none" data-page-node-id="oYYzgXJHxAYxNdD48nOiGe">添加到看板</button>
+    </div>
+    <div class="card" data-page-node-id="OBEaJnWdJFb0G4308w3w0v">
+      <h2 data-page-node-id="NQEyZ6ZYFleUi5AfTuiXNs">作业清单 <span class="tag" id="hwCnt" data-page-node-id="2HICGmfjbcJbx01laVM8zD">0</span></h2>
+      <div id="hwList" data-page-node-id="9B49nQnGYFVgWB2ijoPM0a"></div>
+      <hr class="sep" data-page-node-id="14BCFAfqqIBa9qgJzAdqDL">
+      <button class="btn danger block sm" id="btnClearDoneHw" style="min-height:44px" data-page-node-id="ZXMuDBmKbdocKtQnhKQXJJ">清除已完成</button>
+    </div>
+  </section>
+
+  <!-- ========== 日程 ========== -->
+  <section id="tab-sch" style="display:none" data-page-node-id="MMejC5KrcrdhMNFQrnDgQh">
+    <div class="card" data-page-node-id="EHgV8VmmsBqFWnKGAciRtE">
+      <h2 data-page-node-id="9WQTB4Kkx3KE6SMvPbLYIr">新增日程</h2>
+      <div class="field" data-page-node-id="tPnGmkbWc63jhFFW9VVzxa">
+        <input type="text" id="schTitle" placeholder="日程标题，如「旭旭家长会」" maxlength="80" data-page-node-id="noIgpxHmltrVnbaHcPsGnF">
+      </div>
+      <div class="row2" data-page-node-id="BLSFJIN3xQUv9ZyKxUiH9N">
+        <div class="field" data-page-node-id="JWPOFGJeXT82YFX4zv7gW9">
+          <label data-page-node-id="9DHjY9MPcXk6uhVaCXn8HR">日期</label>
+          <input type="date" id="schDate" data-page-node-id="Bj12G80NlsAz4AgYSOjhDL">
+        </div>
+        <div class="field" data-page-node-id="OhPOn271tYyGdwQoagHdBO">
+          <label data-page-node-id="yD5aMiknkKz1KEp8NJ46v8">开始时间（留空＝全天）</label>
+          <input type="time" id="schStart" data-page-node-id="I9ygqAwOlVRsib32nESu5L">
+        </div>
+      </div>
+      <button class="btn block" id="btnAddSch" data-page-node-id="2s6XT0XkmEKbb2DYJId2AI">添加日程</button>
+      <div class="hint" data-page-node-id="CgERRID1sOwEItSRzVWMYH">
+        日程由「日程」组件显示（组件页可添加）。也可从外部系统批量同步：
+        <code data-page-node-id="x47tBERGFGaZsAkjEeQ4VL">POST /api/push {"op":"events.set","events":[{"title":"...","date":"2026-09-02","start":"19:00"}]}</code>
+      </div>
+    </div>
+    <div class="card" data-page-node-id="9k99trlMgjKTM1ZJnj7WOk">
+      <h2 data-page-node-id="sZe9g1gz9FCzQPyvUCUPfD">日程列表</h2>
+      <div id="schList" data-page-node-id="VD8kWiihqnTrrL7KauBeXb"></div>
+      <hr class="sep" data-page-node-id="6QgLVm5UgSbLVJ7oHJliyH">
+      <button class="btn danger block" id="btnClearSch" style="min-height:44px" data-page-node-id="2e3VEsI1XmxsdrzF1c3V52">清空全部日程</button>
+    </div>
+  </section>
+
+  <!-- ========== 留言 ========== -->
+  <section id="tab-msg" style="display:none" data-page-node-id="DqkhHruWcx46lVMun2kODX">
+    <div class="card" data-page-node-id="uqMQxhH6CSzFqYKJP0JWnN">
+      <h2 data-page-node-id="TXnf971Jd0R4dHD418AST1">写留言</h2>
+      <div class="field" data-page-node-id="ejmAJiaVcylCAqRlSOPpgm">
+        <textarea id="msgText" placeholder="想对家人说什么？" maxlength="200"></textarea>
+      </div>
+      <div class="field" data-page-node-id="E6H5qfZeZdna2dqEN4JNCF">
+        <input type="text" id="msgAuthor" placeholder="署名（可留空）" maxlength="16" data-page-node-id="UMOGrkfvuioNBkvETc2NKz">
+      </div>
+      <button class="btn block" id="btnAddMsg" data-page-node-id="ANBLGwtNft4rEzgpVpMLed">发布留言</button>
+      <div class="hint" data-page-node-id="ciMwhpksMTEAitXhOCRbQX">新留言显示在最上方，墨水屏只显示配置条数内的最新几条。</div>
+    </div>
+    <div class="card" data-page-node-id="OmQgfC1wVnqcdQIIv9bhEF">
+      <h2 data-page-node-id="NuDNV5WF1HFmQwtut7jbt4">留言列表</h2>
+      <div id="msgList" data-page-node-id="9g7Y1uW5HDOgerIYh9xK4I"></div>
+    </div>
+  </section>
+
+  <!-- ========== 设置 ========== -->
+  <section id="tab-set" style="display:none" data-page-node-id="lYJK57swPT6wsxXXG3IqFJ">
+    <div class="card" data-page-node-id="lXlL7JatnDf00zhmmOkwzl">
+      <h2 data-page-node-id="BpbD6gSRJQa31iPkW6yRlb">显示设置</h2>
+      <div class="field" data-page-node-id="lr5U6NGjDAaONaPAiDHVVy">
+        <label data-page-node-id="ygNmNjALED3hZlu8SVXVG4">信息台标题</label>
+        <input type="text" id="setTitle" maxlength="20" data-page-node-id="yFHc4VvEBnvqSEUoPfzmoZ">
+      </div>
+      <div class="field" data-page-node-id="E6mHGGDLGosVNAV0tnzzdn">
+        <label data-page-node-id="Spa6wpCgmeTZdadjKl3pA8">整页全刷周期（秒）</label>
+        <input type="number" id="setReload" min="30" max="3600" step="30" data-page-node-id="nwFZvX13a969imEfDQdoV9">
+      </div>
+      <div class="sw" data-page-node-id="Y8XGYrYQfb2th3SCRlRKdL">
+        <span class="t" data-page-node-id="h2V2poI9t8zF5OfQbn7evK">全刷前闪白（减轻墨水屏残影）</span>
+        <button class="toggle" id="setFlash" data-page-node-id="IZ9An5XTOWvwtJO4Bdo8VD"></button>
+      </div>
+      <div class="sw" data-page-node-id="dHFGx21CQ4ZGbiT4nIQEs6">
+        <span class="t" data-page-node-id="PTxvOQBgBVjwS67iW4nR2L">黑白反色</span>
+        <button class="toggle" id="setInvert" data-page-node-id="LtnmsAg0NzkHvQ7DN1WqOC"></button>
+      </div>
+      <div class="sw" data-page-node-id="OPZZdjd1o2AFy4fSjgr2dw">
+        <span class="t" data-page-node-id="NwtvkbBGwSHTaKvMOUhOM9">底部状态行（更新时间 / 离线提示）</span>
+        <button class="toggle" id="setFooter" data-page-node-id="lHMRR0aIgtZtQSDLZLS66S"></button>
+      </div>
+    </div>
+
+    <div class="card" data-page-node-id="ZHUJy65eUZVD8EcbKNqP4f">
+      <h2 data-page-node-id="m9w9P77G5CYvhc4AaCN3T6">夜间自动息屏</h2>
+      <div class="sw" data-page-node-id="1yvlTteOBtKoqGCIqtT4ra">
+        <span class="t" data-page-node-id="qB2ZgHFuBtjU7prknu0wCj">启用（按时段自动切全黑 / 暗时钟）</span>
+        <button class="toggle" id="setNight" data-page-node-id="6vbomOBgMeM82ofoLRKOZO"></button>
+      </div>
+      <div id="nightCfg" data-page-node-id="lROOxiM8GqFl9gHHmqFp4s">
+        <div class="row2" data-page-node-id="NdsIFX4AMwZW1gHhZ6yKja">
+          <div class="field" data-page-node-id="4XdYID8DV5BioU5bHiZjNE">
+            <label data-page-node-id="g1gkHa0Uxnvb8a05H1FjJr">开始时间</label>
+            <input type="time" id="setNightStart" data-page-node-id="SU472klO45TJYBvlusjqfV">
+          </div>
+          <div class="field" data-page-node-id="OrMIyGrLRwogSG3iLGwQ1D">
+            <label data-page-node-id="ch4THdF6OEURAyUEdReUZl">结束时间</label>
+            <input type="time" id="setNightEnd" data-page-node-id="knF8n4ARnkoq6J4rzWRjCu">
+          </div>
+        </div>
+        <div class="field" data-page-node-id="UPGm7CZJSRiDCuYAzifwIR">
+          <label data-page-node-id="KvUVXFM4xmXHWpQANSLDY3">夜间模式</label>
+          <select id="setNightMode" data-page-node-id="RyltqMQzH4C4BtPc4qS3IL">
+            <option value="black" data-page-node-id="I7qFgS8dVHC6A6NDHakSW4">整页全黑（推荐，对睡眠零干扰）</option>
+            <option value="clock" data-page-node-id="sCGLdCuXBRMd8A7G7i6DYx">只留暗时钟（起夜看时间）</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint" data-page-node-id="KGNp9jFIpXLBdFmlSrVoki">
+        夜间时段内页面自动变全黑（墨水屏黑屏无反光），并释放系统 wakelock 让 MatePad Paper 按「休眠时间」真正熄屏。<br data-page-node-id="t9vdgjaFnMtvMP96OlUTYt">
+        支持跨午夜（如 23:00 → 07:00）。建议配合：EinkBro 阅读灯调到 0、系统「显示和亮度 → 休眠」设 5–10 分钟，睡前即可真正息屏。
+      </div>
+    </div>
+
+    <div class="card" data-page-node-id="HRPBHvTdshukU9C8OlGAqp">
+      <h2 data-page-node-id="QOW9xnCYo6pkjtk6y4ZXP2">天气组件</h2>
+      <div class="field" data-page-node-id="cmCVfaILZqPhbypjKwwFrd">
+        <label data-page-node-id="O7h8Im7eIEdyEWxnK2HcmZ">城市（Open-Meteo 免费接口，无需 key）</label>
+        <input type="text" id="setWeatherCity" maxlength="20" placeholder="如 深圳 / 北京 / 上海" data-page-node-id="EOFmPFVkmNutATqc70nZfd">
+      </div>
+      <div class="hint" data-page-node-id="GHY6C0YkI0shiXG05VY2cj">
+        数据由服务端后台每 10 分钟自动拉取（<code data-page-node-id="yIyjqXfKTpxCoeS97NoqKK">api.open-meteo.com</code>，完全免费、无需注册、无需 API key）。<br data-page-node-id="vGMqOg0wXQ1alYP0LhMvq1">
+        填城市名即可，经纬度自动解析；想精确到区县可在 <code data-page-node-id="w2KU6CUTPxFXmrZetVssXO">data/board.json</code> 改 <code data-page-node-id="aLipVHu1uaEeFgBeG75vEH">weatherLat/weatherLon</code>。<br data-page-node-id="noQUH3x87LJjfgZw7nJpxh">
+        天气组件已出现在显示端；不想显示可到「组件」页移除。
+      </div>
+    </div>
+
+    <div class="card" data-page-node-id="BH9MNGmE7a2tdotYULozlr">
+      <h2 data-page-node-id="7iV0bWcCFctELfQW6RUWCc">尺寸预览</h2>
+      <div class="field" data-page-node-id="DFvue9fbJkiDgs5J80yjb6">
+        <label data-page-node-id="oo7QA0e6h5jkjDFNcubTDa">适配模式</label>
+        <select id="setFit" data-page-node-id="CgNmzyRb70cGbDf4x7kP0Y">
+          <option value="auto" data-page-node-id="Zl5v3X63PRhdEGDgffZAZF">自适应铺满设备屏幕（墨水屏实际使用）</option>
+          <option value="fixed" data-page-node-id="5RWBWMjfoiW0gOda7t7X7S">按目标分辨率预览（电脑上调版式）</option>
+        </select>
+      </div>
+      <div class="row2" data-page-node-id="RAkQDxOqtywyMwnhGmGnmC">
+        <div class="field" data-page-node-id="jc7r8hIXN2jJ2NZC4YhSZ6">
+          <label data-page-node-id="sQf0R2WdWDidgImpYWAmNK">宽（px）</label>
+          <input type="number" id="setW" min="200" max="3000" step="10" data-page-node-id="2ryCPGBRxw7i4DYoSgHPnV">
+        </div>
+        <div class="field" data-page-node-id="FGhJjFDhAHS0ObgxDse5IU">
+          <label data-page-node-id="vRMNtgVCBnvdcMAviVcqaQ">高（px）</label>
+          <input type="number" id="setH" min="200" max="3000" step="10" data-page-node-id="fTpqb96xjyz5Zyjm7z9FKk">
+        </div>
+      </div>
+      <div class="field inline" data-page-node-id="GVExAJePd2Kt4XBgJ7A0sw">
+        <button class="btn ghost" data-preset="800,480" data-page-node-id="3MXhNdeIR7dWnpfd3D4Aw2">7.5寸 800×480</button>
+        <button class="btn ghost" data-preset="1200,825" data-page-node-id="1Bvsym1QFDMnDlWE7rNNO5">10.3寸 1200×825</button>
+      </div>
+      <div class="field inline" data-page-node-id="rA3uxIlk5wADd4hfIApVck">
+        <button class="btn ghost" data-preset="1440,1080" data-page-node-id="LMkUg3lRaAqOF8SIZHdcyR">1440×1080</button>
+        <button class="btn ghost" data-preset="1600,1200" data-page-node-id="Qd24V0w7tuYgiW6De4hqmq">13.3寸 1600×1200</button>
+      </div>
+    </div>
+
+    <div class="card" data-page-node-id="4w8BVQfWmrHci7rQNUUzzF">
+      <h2 data-page-node-id="Zvq0XZavNtQY9qyz5FNb2g">外部接入 Webhook</h2>
+      <div class="field" data-page-node-id="6vX2YKLVg8OISOF5ZEp0r4">
+        <label data-page-node-id="GXUbNzI6L4qp8WPK4WGbmq">鉴权 Token（留空 = 局域网内不鉴权）</label>
+        <input type="text" id="setToken" placeholder="例如 my-family-token" data-page-node-id="7cbVYSJ4cFjo7SAbqnY2sx">
+      </div>
+      <div class="hint" data-page-node-id="U8Ve4jPXg5Qb80aHrfcBH7">
+        脚本、日历、Home Assistant 等可调用 <code data-page-node-id="KzgX06P8uz9BJEV1ZWN5fC">POST /api/push</code> 往信息台推待办 / 留言 / 日程。<br data-page-node-id="vtfvwbUGSicdtUOpxTaYDa">
+        <code data-page-node-id="J9K0LhjMh7dQyap9qCAWTM">curl -X POST http://&lt;IP&gt;:8765/api/push -H "Content-Type: application/json" -d "{\"op\":\"todo.add\",\"text\":\"买牛奶\",\"due\":\"2026-09-02\"}"</code><br data-page-node-id="s3WHpdCP18a0i9fFaHBXAo">
+        设了 Token 后需在 body 带 <code data-page-node-id="NWFEL0b0DkIJB3txYd8MGL">"token"</code> 或请求头 <code data-page-node-id="x2ueCURSlDUMAyDjCePeHj">X-InkBoard-Token</code>。推送接口只放行写入类操作，改不了布局也删不了库。
+      </div>
+    </div>
+
+    <div class="card" data-page-node-id="UJX6dMnIHr9gssLyZS4q41">
+      <h2 data-page-node-id="LbpCFXfRsJjKiLmG5WpVkc">数据</h2>
+      <button class="btn ghost block" id="btnDemo" style="margin-bottom:10px" data-page-node-id="E7q00tjhDo7OY2CEjPYhJD">重置为示例数据</button>
+      <div class="hint" data-page-node-id="ff5mVHqoIeas8QvytymH0e">服务地址：<b id="hostTxt" data-page-node-id="jIdF7BODLfXkpYWQzcjJWa">—</b>　数据文件：<code data-page-node-id="iDAArz0OHxCf8X40HOZUIE">data/board.json</code>（每次改动自动留一份备份快照，最多保留 30 份）</div>
+    </div>
+  </section>
+
+  <!-- ========== 布局模拟器（MatePad Paper 自由拖拽） ========== -->
+  <section id="tab-sim" style="display:none" data-page-node-id="ZVtkUfSWH3EUhoS0eW6Cnx">
+    <div class="card" data-page-node-id="eK1HYDM4hetejhdUaWBscy">
+      <h2 data-page-node-id="VIUJdOAtj7fTbBzQsKZSQ0">屏幕布局模拟器</h2>
+      <div class="sim-bar" data-page-node-id="z6Uu3rUvvO0fvvN697U0eq">
+        <div class="seg" data-page-node-id="UdBPGA3oZYN0buHh3H3WcV">
+          <button id="simLand" class="on" type="button" data-page-node-id="AJwniXK79zEOcpIn8CLPlh">横屏 1872×1404</button>
+          <button id="simPort" type="button" data-page-node-id="mGVpj6r5etoZ5aYDI95TbF">竖屏 1404×1872</button>
+        </div>
+        <span class="sim-sp" data-page-node-id="nzjSezJyY38KSJweaAFPaX"></span>
+        <button class="btn ghost sm" id="btnSimAuto" type="button" data-page-node-id="dBwuCX1kFUBlM1Tm9mRnHN">恢复自动排版</button>
+        <button class="btn sm" id="btnSimSave" type="button" data-page-node-id="T15JAdwIMCYCnazQ8vc0jd">保存并同步到屏幕</button>
+      </div>
+      <div class="sim-hint" style="margin-top:10px" data-page-node-id="mI07W0QHeUh7sM7aQd4WpX">
+        模拟的是华为 MatePad Paper 墨水屏原生分辨率。<b data-page-node-id="jzx5t7NTWUFuczQCUru28q">拖动卡片中部</b>移动位置，<b data-page-node-id="f423PBGdaBq5HDWerfkanE">拖动边框上的圆点</b>调整大小。
+        横屏、竖屏分别排版、互不影响；保存后墨水屏下一次刷新（最多 30 秒）自动套用。组件内容超高时会在组件内滚动，不会被裁切。
+        <br data-page-node-id="Bn4KxTpWqBpWnYcVzKfL6mJ">
+        <b data-page-node-id="Cv7LpBnWqTpWnYcVzKfL7mJ">多选与对齐</b>：<b data-page-node-id="Dw8MqCnTpXqBnYcVzKfL8mJ">按住 Ctrl/Cmd 点</b>切换某个组件的选中态；<b data-page-node-id="Ex9NrDqUpWqYnBcVzKfL9mJ">从空白处拖框</b>框选多个；选中后再拖卡片可整体平移；选 2 个以上会出现「上对齐/下对齐/左对齐/右对齐」按钮；选中任意数量后可在 X/Y/宽/高 输入框里直接输入数值。
+      </div>
+      <div class="sim-wrap" id="simWrap" data-page-node-id="xPkwR3YktRNLCsrljLARq7">
+        <div id="simCanvas" data-page-node-id="M9E8lJcAgy7yhuIOmKU8pd"></div>
+      </div>
+      <div class="sim-multi-bar" id="simMultiBar" style="display:none" data-page-node-id="wQYkYtmFcUaK3lVjHm6UZx">
+        <span class="count" id="selCount">0</span><span>已选中</span>
+        <span class="sep" data-page-node-id="kxLsBdgM8cRpV5zH1oqcyS"></span>
+        <span class="grp" id="grpAlign" style="display:none" data-page-node-id="Vp6YyG8RLpP3KrDqV2hTq8">
+          <button class="ali" data-align="top" type="button" title="顶对齐（所有选中的 y 取最小）" data-page-node-id="fU3QHK5sV3wXnEi7Lp1hBq">上对齐</button>
+          <button class="ali" data-align="bottom" type="button" title="底对齐（所有选中的下边对齐到最大）" data-page-node-id="sQmA1B4rV2yFwLp7Tn8hCz">下对齐</button>
+          <button class="ali" data-align="left" type="button" title="左对齐（所有选中的 x 取最小）" data-page-node-id="gTzC2KxVp9mBnYd3Jh6wQf">左对齐</button>
+          <button class="ali" data-align="right" type="button" title="右对齐（所有选中的右边对齐到最大）" data-page-node-id="bWpL3HnFt5rExYk2Mq9vNg">右对齐</button>
+        </span>
+        <span class="grp" data-page-node-id="Sg7XzVcBqLpKwYhT2Fn5Dj">
+          <span class="lbl" data-page-node-id="Hh4RfP9WmBtVcXzKjL1qNy">X</span><input type="number" id="inGeoX" step="1" min="0" data-page-node-id="aTn1MpVcBwRqYxZk3FhL7G">
+          <span class="lbl" data-page-node-id="Kb6SnWqHmYpTzVcXfL3jRd">Y</span><input type="number" id="inGeoY" step="1" min="0" data-page-node-id="dVx2KqMnYpTzBcWcXfR8hL">
+          <span class="lbl" data-page-node-id="Mx9WpTcKqYnBpVzXhL2rFg">宽</span><input type="number" id="inGeoW" step="1" min="50" data-page-node-id="eVy3LrNpWqTzBcXcYfK9mJ">
+          <span class="lbl" data-page-node-id="Pd4XqTnBpWmYcVzKfL1hRg">高</span><input type="number" id="inGeoH" step="1" min="50" data-page-node-id="fWz5MsTqBpWnYcVzKfL2kH">
+          <button class="ali" id="applyGeo" type="button" title="把输入的 X/Y/宽/高应用到所有选中的组件" data-page-node-id="gYx7NqTpWqBpWnYcVzKfL3mJ">应用到选中</button>
+        </span>
+        <span class="grp" style="border:0" data-page-node-id="Kj8XrQpWnBpYcVzTqL4kHn">
+          <button class="ali clear" id="clearSel" type="button" title="清空当前选择" data-page-node-id="hZx9NqTpWqBpWnYcVzKfL5mJ">取消选择</button>
+        </span>
+      </div>
+      <div class="hint" id="simStatus" data-page-node-id="vU3TNqybUPoHQLpmQK7Ueo"></div>
+    </div>
+  </section>
+</main>
+
+<nav data-page-node-id="ZQjNGWMMUORK3S5mbLpJHw">
+  <button data-tab="comp" class="on" data-page-node-id="UOaQHyu0lpojSp0rRxYoAx">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="3ONI7qDd5Ky23YA4luhXex"><rect x="3" y="3" width="7" height="7" data-page-node-id="CzMHRnSN3Vrg3Mi65mo0cP"/><rect x="14" y="3" width="7" height="7" data-page-node-id="rHtAv5m0WZj3KumWkzMjIo"/><rect x="3" y="14" width="7" height="7" data-page-node-id="hpHHciQGYbjdYCpKijdbFk"/><rect x="14" y="14" width="7" height="7" data-page-node-id="oHLRl5aEKB7WbOIfOwWMMR"/></svg>
+    组件
+  </button>
+  <button data-tab="sim" data-page-node-id="FoZQ0pPSRCihzuC5f7sSSS">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="KdPMUiT8C6Mgy906VqDg6D"><rect x="3" y="4" width="18" height="14" rx="2" data-page-node-id="reIREmkaO8uCLvLfyLPrKW"/><path d="M9 21h6M12 18v3" data-page-node-id="4O9aSHEQYktpdsn5KnU7WV"/><path d="M8 9l3 3-3 3M13 15h4" data-page-node-id="J9NkCBmBDmusRz3bMIhQSQ"/></svg>
+    布局
+  </button>
+  <button data-tab="todo" data-page-node-id="GQRtwAvH7mqbMXOT7O0VMC">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="EEpP26Boy3FyMU17yyjyUE"><rect x="3" y="3" width="18" height="18" data-page-node-id="S2BXiFxh4P4nhluPwcK1Ft"/><path d="M8 12.5l3 3 5.5-6" data-page-node-id="kwbJeydGk29GugV6a91HNo"/></svg>
+    待办
+  </button>
+  <button data-tab="hw" data-page-node-id="OCkx6j6tkz4w0d7v27e24Z">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" data-page-node-id="tECwA53JVSFXRPHRJG3AWf"><path d="M12 4.5C10 3.5 7.5 3.2 4 4v14.5c3.5-.8 6-1.1 8-0.1 2-1 4.5-.7 8 0V4c-3.5-.8-6-1.1-8-0.1z" data-page-node-id="7875MdrVdGkm6LDasvKLak"/><path d="M12 4.5V19M12 6.5c-2-1-4.5-.8-8 0M12 6.5c2-1 4.5-.8 8 0" data-page-node-id="IIQFNKwIJs5LcZxt7cYwRZ"/></svg>
+    作业
+  </button>
+  <button data-tab="sch" data-page-node-id="60k7nYvHt5jcuAOQZ1glNk">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="sFVtLaHH6b0jXgQEpz7XUh"><rect x="3" y="5" width="18" height="16" data-page-node-id="8h2ZL3rAfyGr5vtYUqk2z8"/><path d="M3 10h18M8 3v4M16 3v4" data-page-node-id="Sjv61VYdOnXCMuoiEVG2YL"/></svg>
+    日程
+  </button>
+  <button data-tab="msg" data-page-node-id="riN2t11Li7ChhQBLArPW3x">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="2vakYRtplipH5OUDdtls6g"><path d="M3 5h18v12H8l-5 4V5z" data-page-node-id="7hRjyOk19DQUEmKCBZUSrx"/></svg>
+    留言
+  </button>
+  <button data-tab="set" data-page-node-id="WRyGK101xTZNyyx8FtmJTG">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="zuxZaK5410tN0Z0ebAoeda"><circle cx="12" cy="12" r="3.2" data-page-node-id="yFLdtCxRaE5pkebVBbGvi2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" data-page-node-id="gGoCu2qAjU7UgnOLHY5vo9"/></svg>
+    设置
+  </button>
+</nav>
+
+<div id="toast" data-page-node-id="CwSon8uw0WcBcGaNgnUW4R"></div>
+
+<script>
+/* ==================================================================
+   InkBoard 管理端
+   架构（单向调用，禁止渲染函数互调）：
+     事件 → apiPost（改服务端）→ 更新本地 state → refreshAll()
+     refreshAll() 按固定顺序调用各 renderXxx()，renderXxx 之间互不调用
+   ================================================================== */
+
+var state = null;
+var curTab = 'comp';
+var editingHwId = null;   /* 非空 = 正在编辑某条作业（表单复用为「保存修改」） */
+
+/* ---------- 组件元数据（与显示端注册表保持一致） ---------- */
+var CNAME = { clock:'时间', date:'日期', todo:'待办', homework:'家庭作业', schedule:'日程', message:'留言', countdown:'倒计时', text:'自定义文字', weather:'天气', course:'课程表', timewx:'时间·天气' };
+var CORDER = ['clock','date','todo','homework','schedule','message','countdown','text','weather','course','timewx'];
+/* 可重复添加的组件（倒计时可以有多个：开学、考试、生日…） */
+var REPEATABLE = { clock:false, date:false, todo:false, homework:false, schedule:false, message:false, countdown:true, text:true, weather:false, course:false, timewx:false };
+var CDESC = {
+  clock:'大号数字时钟，可显示秒 / 12 小时制',
+  date:'年月的日 + 星期，可加一句副标题',
+  todo:'待办清单，逾期置顶并反白高亮',
+  schedule:'未来几天的家庭日程安排',
+  message:'家人互留的便条，按时间倒序',
+  countdown:'距某一天还有多少天，可加多个',
+  text:'一句话自定义文字，可加多条',
+  weather:'实时天气（温度 / 状况 / 今明两天预报），Open-Meteo 免费接口',
+  course:'上传 Markdown 课程表，显示端只展示今天与明天的课',
+  homework:'老师转发来的家庭作业；信息板只显示当天作业（08:00 换日，周五作业保留到周一 08:00），打勾即删除线变灰，其它日期在后台查看',
+  timewx:'时间（大号主体）+ 日期 + 今日天气合并为一个组件，无年份，居中排版，适合放进固定尺寸卡片'
+};
+/* 组件库图标（内联 SVG，不引外部资源） */
+var CICON = {
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  date:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  todo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11"/></svg>',
+  schedule:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="8.5" cy="14.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="14.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
+  message:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8z"/></svg>',
+  countdown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h12M6 21h12"/><path d="M8 3c0 5 8 7 8 11a4 4 0 0 1-8 0c0-2 1.5-3 2-4"/></svg>',
+  text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6h14M5 11h14M5 16h9"/></svg>',
+  weather:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 11.5 3.2 3.2 0 0 0 7 18z"/><circle cx="9.5" cy="8" r="2.4"/></svg>',
+  course:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 12 3l9 3.5-9 3.5L3 6.5z"/><path d="M5 9v6.5c0 1 3 2.5 7 2.5s7-1.5 7-2.5V9"/><path d="M19 9.8V16"/></svg>',
+  homework:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 4.5C10 3.5 7.5 3.2 4 4v14.5c3.5-.8 6-1.1 8-0.1 2-1 4.5-.7 8 0V4c-3.5-.8-6-1.1-8-0.1z"/><path d="M12 4.5V19M12 6.5c-2-1-4.5-.8-8 0M12 6.5c2-1 4.5-.8 8 0"/></svg>',
+  timewx:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M4 19.5c1.2-1.6 2.8-2.5 4.2-2.5 1.8 0 3.4 1.2 4 3 .6-1.8 2.2-3 4-3 1.4 0 3 .9 4.2 2.5" transform="translate(0 -1)"/></svg>'
+};
+/* 宽度档位：auto=按屏幕方向自动分栏，其余为手动指定 */
+var SPAN_OPTS = [['auto','自动'],['half','半幅'],['third','三分之一'],['full','整幅']];
+var CFIELDS = {
+  clock: [
+    {key:'size', label:'字号（竖屏建议 9-12，过大自动按容器缩放）', type:'range', min:6, max:24, step:1},
+    {key:'showSeconds', label:'显示秒', type:'bool'},
+    {key:'hour12', label:'12 小时制', type:'bool'}
+  ],
+  date: [
+    {key:'size', label:'字号', type:'range', min:2, max:8, step:0.2},
+    {key:'showWeek', label:'显示星期', type:'bool'},
+    {key:'note', label:'副标题（如「开学第 2 周」）', type:'text'}
+  ],
+  todo: [
+    {key:'title', label:'区块标题', type:'text'},
+    {key:'maxItems', label:'最多显示条数', type:'number', min:1, max:20},
+    {key:'showDone', label:'显示已完成的', type:'bool'}
+  ],
+  homework: [
+    {key:'title', label:'区块标题', type:'text'},
+    {key:'size', label:'内容字号', type:'range', min:1.5, max:5, step:0.1}
+  ],
+  schedule: [
+    {key:'title', label:'区块标题', type:'text'},
+    {key:'maxItems', label:'最多显示条数', type:'number', min:1, max:20},
+    {key:'withinDays', label:'显示未来几天（1=只看今天）', type:'number', min:1, max:14},
+    {key:'showTime', label:'显示时间', type:'bool'},
+    {key:'schMain', label:'相对日 / 时间 / 内容 字号（1=基准，0.6–1.6，越大越大）', type:'range', min:0.6, max:1.6, step:0.05},
+    {key:'schMeta', label:'日期 / 星期 字号（相对主字号比例，0.4–1，越大越大）', type:'range', min:0.4, max:1, step:0.02}
+  ],
+  message: [
+    {key:'title', label:'区块标题', type:'text'},
+    {key:'maxItems', label:'最多显示条数', type:'number', min:1, max:20}
+  ],
+  countdown: [
+    {key:'label', label:'名称', type:'text'},
+    {key:'target', label:'目标日期', type:'date'},
+    {key:'size', label:'字号', type:'range', min:4, max:14, step:1}
+  ],
+  text: [
+    {key:'content', label:'内容', type:'textarea'},
+    {key:'size', label:'字号', type:'range', min:1.5, max:6, step:0.1}
+  ],
+  course: [
+    {key:'size', label:'内容字号（1=基准，0.6–2.5 可调，越大越大）', type:'range', min:0.6, max:2.5, step:0.1},
+    {key:'showTime', label:'显示具体上课时间（如 8:30-9:10），节次（第一节…）始终显示', type:'bool'},
+    {key:'markdown', label:'课程表（上传 .md 文件，或在下方粘贴 Markdown）', type:'markdown'}
+  ],
+  timewx: [
+    {key:'size', label:'时间字号上限（实际按容器宽高自动缩放，过大自动收敛）', type:'range', min:8, max:22, step:1},
+    {key:'dateSize', label:'日期字号（相对时间的比例，em）', type:'range', min:0.1, max:0.6, step:0.005},
+    {key:'weekSize', label:'星期字号（相对时间的比例，em）', type:'range', min:0.1, max:0.6, step:0.005},
+    {key:'tempSize', label:'温度字号（相对时间的比例，em）', type:'range', min:0.1, max:0.6, step:0.005},
+    {key:'descSize', label:'天气描述字号（如「晴/多云」，相对时间的比例，em）', type:'range', min:0.1, max:0.6, step:0.005},
+    {key:'humSize', label:'湿度字号（相对时间的比例，em）', type:'range', min:0.1, max:0.6, step:0.005},
+    {key:'showSeconds', label:'显示秒', type:'bool'},
+    {key:'showWeather', label:'显示天气', type:'bool'},
+    {key:'showHumidity', label:'天气显示湿度', type:'bool'}
+  ]
+};
+var CDEFAULTS = {
+  clock:{showSeconds:false, hour12:false, size:10},
+  date:{showWeek:true, note:'', size:4.2},
+  todo:{maxItems:5, showDone:false, title:'今天要处理'},
+  homework:{title:'家庭作业', size:2.6},
+  schedule:{maxItems:4, title:'家庭日程', withinDays:3, showTime:true, schMain:1, schMeta:0.62},
+  message:{maxItems:3, title:'留言板'},
+  countdown:{label:'', target:'', size:7},
+  text:{content:'在这里写一句话', size:2.4},
+  course:{size:1},
+  timewx:{showSeconds:false, showWeather:true, showHumidity:true, size:13, dateSize:0.235, weekSize:0.235, tempSize:0.245, descSize:0.24, humSize:0.2}
+};
+
+/* ===== 字号缺省：保存 / 恢复 ===== */
+/* 各组件的「字号」类配置字段。todo / message / weather 没有字号字段，不在本表内。 */
+var FONT_KEYS = {
+  clock:['size'],
+  date:['size'],
+  homework:['size'],
+  schedule:['schMain','schMeta'],
+  countdown:['size'],
+  text:['size'],
+  course:['size'],
+  timewx:['size','dateSize','weekSize','tempSize','descSize','humSize']
+};
+
+/* 当前生效字号：布局内已添加的组件取其实际配置；未添加的组件取出厂默认（CDEFAULTS） */
+function effectiveFontValues(){
+  var out = {};
+  var layout = state.layout || [];
+  for(var cid in FONT_KEYS){
+    if(!Object.prototype.hasOwnProperty.call(FONT_KEYS, cid)) continue;
+    var keys = FONT_KEYS[cid];
+    var cfg = {};
+    for(var i = 0; i < layout.length; i++){
+      if(layout[i].id === cid){ cfg = layout[i].config || {}; break; }   /* 同类多个时取第一个 */
+    }
+    var vals = {};
+    for(var k = 0; k < keys.length; k++){
+      var key = keys[k];
+      var v = cfg[key];
+      if(v == null || v === '') v = (CDEFAULTS[cid] || {})[key];
+      if(v != null && v !== '') vals[key] = v;
+    }
+    out[cid] = vals;
+  }
+  return out;
+}
+
+/* 把当前所有组件正在使用的字号存为缺省（写入 settings.fontDefaults，重启后仍在） */
+function saveFontDefaults(){
+  var defs = effectiveFontValues();
+  apiPost('settings.set', { settings: { fontDefaults: defs } }, function(r, err){
+    if(err){ toast('保存缺省失败：' + err, true); return; }
+    if(r && r.state) state = r.state;
+    refreshAll();
+    toast('已把当前所有组件的字号保存为缺省');
+  });
+}
+
+/* 把所有组件的字号恢复到已保存的缺省值（二次确认；只覆盖字号字段，不动标题/条数/课程表等内容） */
+function restoreFontDefaults(){
+  var defs = (state.settings && state.settings.fontDefaults) || {};
+  var n = 0;
+  for(var kk in defs){ if(Object.prototype.hasOwnProperty.call(defs, kk)) n++; }
+  if(n === 0){ toast('还没有保存过缺省字号，请先点「保存当前字号为缺省」', true); return; }
+  if(!confirm('确定要把所有组件的字号恢复到缺省值吗？\n\n这会覆盖当前所有组件正在使用的字号设置，且不可撤销。')) return;
+
+  var layout = state.layout || [];
+  var targets = [];
+  for(var i = 0; i < layout.length; i++){
+    var it = layout[i];
+    var keys = FONT_KEYS[it.id];
+    if(!keys) continue;                        /* 无字号字段（todo/message/weather）跳过 */
+    var d = defs[it.id] || {};
+    var cfg = Object.assign({}, it.config || {});
+    var changed = false;
+    for(var j = 0; j < keys.length; j++){
+      var key = keys[j];
+      if(d[key] != null){ cfg[key] = d[key]; changed = true; }
+    }
+    if(changed) targets.push({ id: it.id, uid: it.uid, config: cfg });
+  }
+  if(targets.length === 0){ toast('当前没有需要恢复字号的组件'); return; }
+
+  var done = 0, failed = 0;
+  targets.forEach(function(t){
+    apiPost('layout.config', t, function(r, err){
+      if(err) failed++;
+      else if(r && r.state) state = r.state;
+      done++;
+      if(done === targets.length){
+        refreshAll();
+        toast(failed ? ('恢复完成，但有 ' + failed + ' 个组件失败')
+                     : ('已恢复 ' + targets.length + ' 个组件的字号到缺省值'), failed > 0);
+      }
+    });
+  });
+}
+var SPAN = { clock:6, date:6, todo:12, homework:12, schedule:12, message:12, countdown:6, text:6, course:12, timewx:6 };
+
+/* ---------- 工具 ---------- */
+function $(id){ return document.getElementById(id); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function todayStr(off){
+  var d = new Date();
+  if(off) d.setDate(d.getDate() + off);
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function diffDays(s){
+  if(!s) return null;
+  var p = String(s).split('-');
+  if(p.length < 3) return null;
+  var a = new Date(+p[0], (+p[1])-1, +p[2]);
+  var b = new Date(); b.setHours(0,0,0,0);
+  return Math.round((a - b) / 86400000);
+}
+function hhmm(iso){
+  if(!iso) return '';
+  var m = String(iso).match(/(\d{2}):(\d{2})/);
+  return m ? m[1] + ':' + m[2] : '';
+}
+
+var toastTimer = null;
+function toast(msg, isErr){
+  var t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.className = ''; }, 1800);
+}
+
+/* ---------- 网络 ---------- */
+function apiGet(cb){
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/api/state?t=' + Date.now(), true);
+  xhr.timeout = 8000;
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState !== 4) return;
+    if(xhr.status === 200){
+      try{ var r = JSON.parse(xhr.responseText); cb(r.state || null, null); }
+      catch(e){ cb(null, '数据格式错误'); }
+    }else cb(null, 'HTTP ' + xhr.status);
+  };
+  xhr.onerror = function(){ cb(null, '连不上服务'); };
+  xhr.send();
+}
+function apiPost(op, payload, cb){
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/update', true);
+  xhr.setRequestHeader('Content-Type','application/json');
+  xhr.timeout = 8000;
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState !== 4) return;
+    if(xhr.status === 200){
+      try{ var r = JSON.parse(xhr.responseText); cb(r, null); }
+      catch(e){ cb(null, '数据格式错误'); }
+    }else cb(null, 'HTTP ' + xhr.status);
+  };
+  xhr.onerror = function(){ cb(null, '连不上服务'); };
+  xhr.send(JSON.stringify({ op: op, payload: payload || {} }));
+}
+
+/* ---------- 统一刷新入口 ---------- */
+function refreshAll(){
+  if(!state) return;
+  renderCompList();
+  renderTodoList();
+  renderHomeworkList();
+  renderSchList();
+  renderMsgList();
+  renderSettings();
+  renderHeader();
+}
+
+function renderHeader(){
+  $('hsub').textContent = (state.settings.title || '家庭信息台') + ' · 更新 ' + hhmm(state.updatedAt);
+  $('statTxt').textContent = (state.todos.length) + ' 待办 / ' + (state.homework ? state.homework.length : 0) + ' 作业 / ' + (state.messages.length) + ' 留言';
+  $('hostTxt').textContent = location.host;
+}
+
+/* ---------- 组件页 ---------- */
+var ICON_UP    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+var ICON_DOWN  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+var ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg>';
+
+function spanSelectHtml(idx, cur){
+  var s = '<select class="spanSel" data-act="span" data-i="' + idx + '">';
+  for(var i = 0; i < SPAN_OPTS.length; i++){
+    s += '<option value="' + SPAN_OPTS[i][0] + '"' +
+         (SPAN_OPTS[i][0] === (cur || 'auto') ? ' selected' : '') + '>' + SPAN_OPTS[i][1] + '</option>';
+  }
+  return s + '</select>';
+}
+
+function renderCompList(){
+  var host = $('compList');
+  var html = '';
+  var layout = state.layout || [];
+  var cnt = $('compCnt');
+  if(cnt) cnt.textContent = layout.length + ' / 12';
+
+  var fdi = $('fontDefInfo');
+  if(fdi){
+    var fd = (state.settings && state.settings.fontDefaults) || {};
+    var fdN = 0;
+    for(var fk in fd){ if(Object.prototype.hasOwnProperty.call(fd, fk)) fdN++; }
+    fdi.textContent = fdN ? ('已保存 ' + fdN + ' 类组件的缺省字号') : '尚未保存缺省字号';
+  }
+
+  if(layout.length === 0){
+    host.innerHTML = '<div class="empty">还没有组件，请在下方「组件库」里添加</div>';
+  }else{
+    for(var i = 0; i < layout.length; i++){
+      var it = layout[i];
+      var cfg = it.config || {};
+      var fields = CFIELDS[it.id] || [];
+      html += '<div class="comp' + (it.enabled ? '' : ' off') + '">' +
+        '<div class="ch">' +
+          '<span class="nm">' + esc(CNAME[it.id] || it.id) + '</span>' +
+          spanSelectHtml(i, it.span) +
+          '<span class="chops">' +
+            '<button class="mini" data-act="up" data-i="' + i + '" title="上移"' + (i === 0 ? ' disabled' : '') + '>' + ICON_UP + '</button>' +
+            '<button class="mini" data-act="down" data-i="' + i + '" title="下移"' + (i === layout.length - 1 ? ' disabled' : '') + '>' + ICON_DOWN + '</button>' +
+            '<button class="mini danger" data-act="del" data-i="' + i + '" title="移除组件"' +
+              (layout.length <= 1 ? ' disabled' : '') + '>' + ICON_TRASH + '</button>' +
+            '<button class="toggle' + (it.enabled ? ' on' : '') + '" data-act="toggle" data-i="' + i + '" title="显示/隐藏"></button>' +
+          '</span>' +
+        '</div>';
+        if(fields.length){
+          html += '<div class="cb">';
+          for(var f = 0; f < fields.length; f++){
+            html += renderField(it.id, i, fields[f], cfg[fields[f].key]);
+          }
+          html += '</div>';
+        }
+      html += '</div>';
+    }
+  }
+  host.innerHTML = html;
+  bindCompEvents();
+  renderCompLib();
+}
+
+/* 组件库：卡片式，可重复添加的类型显示已加数量 */
+function renderCompLib(){
+  var host = $('compLib');
+  if(!host) return;
+  var layout = state.layout || [];
+  var used = {};
+  for(var i = 0; i < layout.length; i++) used[layout[i].id] = (used[layout[i].id] || 0) + 1;
+
+  var html = '';
+  if(layout.length >= 12){
+    host.innerHTML = '<div class="empty">组件数量已达上限（12 个）</div>';
+    return;
+  }
+  for(var j = 0; j < CORDER.length; j++){
+    var id = CORDER[j];
+    if(used[id] && !REPEATABLE[id]) continue;
+    html += '<button class="libcard" data-lib="' + id + '">' +
+        '<span class="licon">' + (CICON[id] || '') + '</span>' +
+        '<span class="lname">' + esc(CNAME[id]) + '</span>' +
+        '<span class="ldesc">' + esc(CDESC[id] || '') + '</span>' +
+        (used[id] ? '<span class="lbadge">已添加 ' + used[id] + '</span>' : '') +
+      '</button>';
+  }
+  host.innerHTML = html || '<div class="empty">所有组件都已添加到信息台</div>';
+  bindLibEvents();
+}
+
+function bindLibEvents(){
+  var lib = $('compLib');
+  if(!lib || lib.onclick) return;
+  lib.onclick = function(e){
+    var el = e.target;
+    while(el && el !== lib && !el.getAttribute('data-lib')) el = el.parentNode;
+    if(!el || el === lib) return;
+    var id = el.getAttribute('data-lib');
+    if(!id) return;
+    apiPost('layout.add', { id: id }, function(r, err){
+      if(err){ toast('添加失败：' + err, true); return; }
+      state = r.state;
+      refreshAll();
+      toast('已添加「' + CNAME[id] + '」');
+    });
+  };
+}
+
+function renderField(cid, idx, f, val){
+  var id = 'f_' + cid + '_' + idx + '_' + f.key;
+  if(f.type === 'bool'){
+    return '<div class="sw"><span class="t">' + esc(f.label) + '</span>' +
+      '<button class="toggle' + (val ? ' on' : '') + '" data-fid="' + id + '" data-ftype="bool" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></button></div>';
+  }
+  var head = '<div class="field"><label>' + esc(f.label) + '</label>';
+  if(f.type === 'range'){
+    var dv = (val != null) ? val : (((CDEFAULTS[cid] || {})[f.key] != null) ? (CDEFAULTS[cid] || {})[f.key] : '');
+    return head + '<input type="range" id="' + id + '" min="' + f.min + '" max="' + f.max + '" step="' + f.step + '" value="' + dv +
+      '" data-ftype="range" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
+  }
+  if(f.type === 'number'){
+    return head + '<input type="number" id="' + id + '" min="' + (f.min || 0) + '" max="' + (f.max || 999) + '" value="' + (val != null ? val : '') +
+      '" data-ftype="number" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
+  }
+  if(f.type === 'date'){
+    return head + '<input type="date" id="' + id + '" value="' + esc(val || '') +
+      '" data-ftype="date" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
+  }
+  if(f.type === 'textarea'){
+    return head + '<textarea id="' + id + '" data-ftype="text" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '">' + esc(val || '') + '</textarea></div>';
+  }
+  if(f.type === 'markdown'){
+    var prefill = (state && state.courses) ? state.courses : '';
+    return head +
+      '<input type="file" id="' + id + '" accept=".md,.markdown,.txt" data-ftype="mdfile" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '">' +
+      '<textarea id="' + id + '_ta" data-ftype="mdtext" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '">' + esc(prefill) + '</textarea>' +
+      '<div class="hint">仅支持「首列=时间、后五列=周一~周五」的表格，显示端只展示今天与明天</div></div>';
+  }
+  return head + '<input type="text" id="' + id + '" value="' + esc(val != null ? val : '') +
+    '" data-ftype="text" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
+}
+
+function bindCompEvents(){
+  var list = $('compList');
+  list.onclick = function(e){
+    var el = e.target;
+    while(el && el !== list && !el.getAttribute('data-act') && !el.getAttribute('data-ftype')){
+      el = el.parentNode;
+    }
+    if(!el || el === list) return;
+
+    var act = el.getAttribute('data-act');
+    if(act === 'toggle'){
+      var i = +el.getAttribute('data-i');
+      state.layout[i].enabled = !state.layout[i].enabled;
+      pushLayout();
+      return;
+    }
+    if(act === 'up' || act === 'down'){
+      var i2 = +el.getAttribute('data-i');
+      var j = i2 + (act === 'up' ? -1 : 1);
+      if(j < 0 || j >= state.layout.length) return;
+      var tmp = state.layout[i2];
+      state.layout[i2] = state.layout[j];
+      state.layout[j] = tmp;
+      pushLayout();
+      return;
+    }
+    if(act === 'del'){
+      var i3 = +el.getAttribute('data-i');
+      var it3 = state.layout[i3];
+      if(!it3) return;
+      var nm3 = CNAME[it3.id] || '该组件';
+      if(state.layout.length <= 1){ toast('至少保留一个组件', true); return; }
+      if(!confirm('确定移除「' + nm3 + '」？\n其个性化设置会一并删除，之后可在「组件库」重新添加。')) return;
+      apiPost('layout.remove', { uid: it3.uid, id: it3.id }, function(r, err){
+        if(err){ toast('移除失败：' + err, true); load(); return; }
+        state = r.state;
+        refreshAll();
+        toast('已移除「' + nm3 + '」');
+      });
+      return;
+    }
+    if(act === 'span') return;   /* select 交给 change 事件处理 */
+
+    if(el.getAttribute('data-ftype') === 'bool'){
+      var cid = el.getAttribute('data-cid');
+      var idx = +el.getAttribute('data-i');
+      var key = el.getAttribute('data-key');
+      var cur = (state.layout[idx].config || {})[key];
+      if(cur === undefined) cur = (CDEFAULTS[cid] || {})[key];
+      saveCompConfig(cid, key, !cur, idx);
+    }
+  };
+
+  var inputs = list.querySelectorAll('[data-ftype]');
+  for(var n = 0; n < inputs.length; n++){
+    (function(inp){
+      var ft0 = inp.getAttribute('data-ftype');
+      if(ft0 === 'bool' || ft0 === 'mdfile' || ft0 === 'mdtext') return;  // 这两个走专用逻辑
+      var evt = (inp.tagName === 'SELECT' || ft0 === 'date' || ft0 === 'range') ? 'change' : 'blur';
+      inp.addEventListener(evt, function(){
+        var cid = inp.getAttribute('data-cid');
+        var idx = +inp.getAttribute('data-i');
+        var key = inp.getAttribute('data-key');
+        var ft = inp.getAttribute('data-ftype');
+        var v = inp.value;
+        if(ft === 'number') v = parseInt(v, 10);
+        else if(ft === 'range') v = parseFloat(v);
+        saveCompConfig(cid, key, v, idx);
+      });
+    })(inputs[n]);
+  }
+
+  /* 课程表 Markdown：文件上传 / 粘贴，统一走 courses.set */
+  function saveCourse(val){
+    apiPost('courses.set', { markdown: val }, function(r, err){
+      if(err){ toast('课程表保存失败：' + err, true); return; }
+      if(r && r.state) state = r.state;
+      toast('课程表已保存');
+    });
+  }
+  var mdFiles = list.querySelectorAll('[data-ftype="mdfile"]');
+  for(var mfi = 0; mfi < mdFiles.length; mfi++){
+    (function(fin){
+      fin.addEventListener('change', function(){
+        var file = fin.files && fin.files[0];
+        if(!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e){
+          var ta = document.getElementById(fin.id + '_ta');
+          var txt = String(e.target.result || '');
+          if(ta) ta.value = txt;
+          saveCourse(txt);
+        };
+        reader.onerror = function(){ toast('文件读取失败', true); };
+        reader.readAsText(file, 'utf-8');
+      });
+    })(mdFiles[mfi]);
+  }
+  var mdTexts = list.querySelectorAll('[data-ftype="mdtext"]');
+  for(var mti = 0; mti < mdTexts.length; mti++){
+    (function(ta){
+      ta.addEventListener('blur', function(){ saveCourse(ta.value); });
+    })(mdTexts[mti]);
+  }
+
+  /* 宽度档位：改的是布局项上的 span，不是组件 config，单独处理 */
+  var spans = list.querySelectorAll('[data-act="span"]');
+  for(var s = 0; s < spans.length; s++){
+    (function(sel){
+      sel.addEventListener('change', function(){
+        var idx = +sel.getAttribute('data-i');
+        var it = state.layout[idx];
+        if(!it) return;
+        it.span = sel.value;
+        apiPost('layout.config', { id: it.id, uid: it.uid, span: sel.value, config: it.config || {} },
+          function(r, err){
+            if(err){ toast('保存失败：' + err, true); load(); return; }
+            state = r.state;
+            refreshAll();
+            toast('宽度已更新');
+          });
+      });
+    })(spans[s]);
+  }
+}
+
+function saveCompConfig(cid, key, val, idx){
+  var it = state.layout[idx];
+  if(!it) return;
+  var cfg = it.config || {};
+  cfg[key] = val;
+  it.config = cfg;
+  apiPost('layout.config', { id: cid, uid: it.uid, config: cfg }, function(r, err){
+    if(err){ toast('保存失败：' + err, true); return; }
+    state = r.state;
+    refreshAll();
+    toast('已保存');
+  });
+}
+
+function pushLayout(){
+  apiPost('layout.set', { layout: state.layout }, function(r, err){
+    if(err){ toast('保存失败：' + err, true); load(); return; }
+    state = r.state;
+    refreshAll();
+  });
+}
+
+/* ---------- 待办页 ---------- */
+function renderTodoList(){
+  var host = $('todoList');
+  var list = state.todos || [];
+  $('todoCnt').textContent = list.length;
+  if(list.length === 0){
+    host.innerHTML = '<div class="empty">还没有待办</div>';
+    return;
+  }
+  var sorted = list.slice().sort(function(a,b){
+    if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+    var da = diffDays(a.due), db = diffDays(b.due);
+    if(da === null && db === null) return 0;
+    if(da === null) return 1;
+    if(db === null) return -1;
+    return da - db;
+  });
+  var html = '';
+  for(var i = 0; i < sorted.length; i++){
+    var t = sorted[i];
+    var dd = diffDays(t.due);
+    var tag = '';
+    if(!t.done && dd !== null){
+      if(dd < 0) tag = '<span class="tag red">逾期 ' + (-dd) + ' 天</span>';
+      else if(dd === 0) tag = '<span class="tag green">今天</span>';
+      else tag = '<span class="tag">' + t.due + '</span>';
+    }else if(t.due){
+      tag = '<span class="tag">' + t.due + '</span>';
+    }
+    html += '<div class="item' + (t.done ? ' done' : '') + '">' +
+      '<div class="body">' +
+        '<div class="t1">' + esc(t.text) + tag + '</div>' +
+        '<div class="t2">' + (t.due ? '截止 ' + t.due : '无期限') + ' · 建于 ' + hhmm(t.createdAt) + '</div>' +
+      '</div>' +
+      '<div class="ops">' +
+        '<button class="mini" data-td="toggle" data-id="' + t.id + '" title="完成/取消">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12.5l4.5 4.5L19 7"/></svg></button>' +
+        '<button class="mini" data-td="del" data-id="' + t.id + '" title="删除">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' +
+      '</div></div>';
+  }
+  host.innerHTML = html;
+  host.onclick = function(e){
+    var el = e.target;
+    while(el && el !== host && !el.getAttribute('data-td')) el = el.parentNode;
+    if(!el || el === host) return;
+    var act = el.getAttribute('data-td'), id = el.getAttribute('data-id');
+    if(act === 'toggle') apiPost('todo.toggle', { id: id }, afterTodo);
+    if(act === 'del')    apiPost('todo.delete', { id: id }, afterTodo);
+  };
+}
+function afterTodo(r, err){
+  if(err){ toast('操作失败：' + err, true); return; }
+  state = r.state;
+  refreshAll();
+}
+
+/* ---------- 家庭作业页 ---------- */
+function renderHomeworkList(){
+  var host = $('hwList');
+  var list = state.homework || [];
+  $('hwCnt').textContent = list.length;
+  if(list.length === 0){
+    host.innerHTML = '<div class="empty">还没有作业</div>';
+    return;
+  }
+  var sorted = list.slice().sort(function(a,b){
+    if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+    var da = diffDays(a.due), db = diffDays(b.due);
+    if(da === null && db === null) return 0;
+    if(da === null) return 1;
+    if(db === null) return -1;
+    return da - db;
+  });
+  var html = '';
+  for(var i = 0; i < sorted.length; i++){
+    var h = sorted[i];
+    var dd = diffDays(h.due);
+    var tag = '';
+    if(!h.done && dd !== null){
+      if(dd < 0) tag = '<span class="tag red">逾期 ' + (-dd) + ' 天</span>';
+      else if(dd === 0) tag = '<span class="tag green">今天</span>';
+      else tag = '<span class="tag">' + h.due + '</span>';
+    }else if(h.due){
+      tag = '<span class="tag">' + h.due + '</span>';
+    }
+    var src = '';
+    if(h.subject) src += '<span class="tag" style="background:#eef7f0;color:#2a7d4f">' + esc(h.subject) + '</span>';
+    if(h.teacher) src += '<span class="tag blue">' + esc(h.teacher) + '</span>';
+    html += '<div class="item' + (h.done ? ' done' : '') + '">' +
+      '<div class="body">' +
+        '<div class="t1">' + esc(h.text) + tag + src + '</div>' +
+        '<div class="t2">源于 ' + esc(h.source || 'manual') + ' · ' + (h.due ? '截止 ' + h.due : '无期限') + ' · 建 ' + hhmm(h.createdAt) + '</div>' +
+      '</div>' +
+      '<div class="ops">' +
+        '<button class="mini" data-hw="edit" data-id="' + h.id + '" title="编辑">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M4 16.5V20h3.5L17 10.5 13.5 7 4 16.5z"/><path d="M14.5 5.5l3 3"/></svg></button>' +
+        '<button class="mini" data-hw="toggle" data-id="' + h.id + '" title="完成/取消">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12.5l4.5 4.5L19 7"/></svg></button>' +
+        '<button class="mini danger" data-hw="del" data-id="' + h.id + '" title="删除">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' +
+      '</div></div>';
+  }
+  host.innerHTML = html;
+  host.onclick = function(e){
+    var el = e.target;
+    while(el && el !== host && !el.getAttribute('data-hw')) el = el.parentNode;
+    if(!el || el === host) return;
+    var act = el.getAttribute('data-hw'), id = el.getAttribute('data-id');
+    if(act === 'toggle') apiPost('homework.toggle', { id: id }, afterHomework);
+    if(act === 'del')    apiPost('homework.delete', { id: id }, afterHomework);
+    if(act === 'edit')    startEditHw(id);
+  };
+}
+function afterHomework(r, err){
+  if(err){ toast('操作失败：' + err, true); return; }
+  state = r.state;
+  refreshAll();
+}
+function startEditHw(id){
+  var list = state.homework || [];
+  for(var i = 0; i < list.length; i++){
+    if(list[i].id === id){
+      var h = list[i];
+      editingHwId = id;
+      $('hwText').value = h.text || '';
+      $('hwTeacher').value = h.teacher || '';
+      $('hwSubject').value = h.subject || '';
+      $('hwDue').value = h.due || '';
+      $('btnAddHw').textContent = '保存修改';
+      $('hwCancelEdit').style.display = '';
+      $('hwText').focus();
+      toast('编辑中：' + (h.subject || '作业'));
+      return;
+    }
+  }
+  toast('找不到该作业', true);
+}
+
+function cancelEditHw(){
+  editingHwId = null;
+  $('hwText').value = '';
+  $('hwTeacher').value = '';
+  $('hwSubject').value = '';
+  $('hwDue').value = todayStr(0);
+  $('btnAddHw').textContent = '添加作业';
+  $('hwCancelEdit').style.display = 'none';
+}
+
+function addHomework(){
+  var txt = $('hwText').value.trim();
+  if(!txt){ toast('请先输入作业内容', true); $('hwText').focus(); return; }
+  var payload = {
+    text: txt,
+    teacher: $('hwTeacher').value.trim(),
+    subject: $('hwSubject').value.trim(),
+    due: $('hwDue').value
+  };
+  if(editingHwId){
+    payload.id = editingHwId;
+    apiPost('homework.update', payload, function(r, err){
+      if(err){ toast('保存失败：' + err, true); return; }
+      state = r.state;
+      cancelEditHw();
+      refreshAll();
+      toast('已保存修改');
+    });
+  }else{
+    apiPost('homework.add', payload, function(r, err){
+      if(err){ toast('添加失败：' + err, true); return; }
+      state = r.state;
+      cancelEditHw();
+      refreshAll();
+      toast('已添加');
+    });
+  }
+}
+
+/* ---------- 家庭作业：AI 格式化录入 ---------- */
+var HW_BOT_API = 'http://127.0.0.1:8766';
+var pendingFmt = null;
+
+function formatHomework(){
+  var txt = $('hwFormatInput').value.trim();
+  if(!txt){ toast('请先粘贴作业内容', true); $('hwFormatInput').focus(); return; }
+  $('hwFormatStatus').textContent = '正在调用 qq-homework-bot 大模型格式化…';
+  $('hwFormatStatus').style.color = '';
+  $('btnFormatHw').disabled = true;
+  fetch(HW_BOT_API + '/api/format', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: txt })
+  }).then(function(res){
+    return res.json().then(function(j){ return { ok: res.ok, j: j }; });
+  }).then(function(r){
+    $('btnFormatHw').disabled = false;
+    if(!r.ok || !r.j.ok){
+      $('hwFormatStatus').textContent = '格式化失败：' + ((r.j && r.j.error) || ('HTTP ' + r.status));
+      $('hwFormatStatus').style.color = '#c0392b';
+      return;
+    }
+    var j = r.j;
+    pendingFmt = j.entries || [];
+    if(!j.llm_used){
+      var reason = j.llm_error || '规则回退';
+      if(reason.indexOf('未启用') >= 0 || reason.indexOf('未配置') >= 0){
+        $('hwFormatStatus').textContent = '大模型未启用/未配置（' + reason + '），已用规则回退。共 ' + pendingFmt.length +
+          ' 条，请预览确认；若要启用大模型，请在 qq-homework-bot 的 config.json 填好 llm.api_key 并重启机器人。';
+      } else if(reason.indexOf('鉴权') >= 0 || reason.indexOf('调用失败') >= 0){
+        $('hwFormatStatus').textContent = '大模型调用失败（' + reason + '），已用规则回退。共 ' + pendingFmt.length +
+          ' 条，请预览确认；多半是 config.json 里的 llm.api_key 失效或无效，去火山方舟控制台重发一个 key 填进去并重启机器人即可。';
+        $('hwFormatStatus').style.color = '#c0392b';
+      } else {
+        $('hwFormatStatus').textContent = '大模型未返回有效结果（' + reason + '），已用规则回退。共 ' + pendingFmt.length + ' 条，请预览确认。';
+      }
+    }else{
+      $('hwFormatStatus').textContent = '大模型已解析，共 ' + pendingFmt.length + ' 条，请预览确认。';
+    }
+    renderFmtPreview();
+  }).catch(function(e){
+    $('btnFormatHw').disabled = false;
+    $('hwFormatStatus').textContent = '无法连接 qq-homework-bot（请确认机器人已启动、且格式化 API 在 ' + HW_BOT_API + ' 可访问）。';
+    $('hwFormatStatus').style.color = '#c0392b';
+  });
+}
+
+function renderFmtPreview(){
+  var host = $('hwFormatPreview');
+  if(!pendingFmt || !pendingFmt.length){
+    host.innerHTML = '';
+    $('btnFormatAdd').style.display = 'none';
+    return;
+  }
+  var html = '';
+  for(var i = 0; i < pendingFmt.length; i++){
+    var e = pendingFmt[i];
+    var tag = '';
+    if(e.subject) tag += '<span class="tag" style="background:#eef7f0;color:#2a7d4f">' + esc(e.subject) + '</span>';
+    if(e.due) tag += '<span class="tag">' + esc(e.due) + '</span>';
+    if(e.teacher) tag += '<span class="tag blue">' + esc(e.teacher) + '</span>';
+    html += '<div class="item"><div class="body"><div class="t1">' + esc(e.text) + tag + '</div></div></div>';
+  }
+  host.innerHTML = html;
+  $('btnFormatAdd').textContent = '✓ 添加到看板（' + pendingFmt.length + ' 条）';
+  $('btnFormatAdd').style.display = '';
+}
+
+function addFormattedHomework(){
+  if(!pendingFmt || !pendingFmt.length){ toast('没有可添加的条目', true); return; }
+  var entries = pendingFmt.slice();
+  var n = entries.length;
+  function step(idx){
+    if(idx >= n){
+      pendingFmt = null;
+      $('hwFormatPreview').innerHTML = '';
+      $('btnFormatAdd').style.display = 'none';
+      $('hwFormatInput').value = '';
+      $('hwFormatStatus').textContent = '已添加 ' + n + ' 条到看板。';
+      refreshAll();
+      toast('已添加 ' + n + ' 条');
+      return;
+    }
+    var e = entries[idx];
+    apiPost('homework.add', {
+      text: e.text, due: e.due || '', teacher: e.teacher || '', subject: e.subject || '', source: 'ai'
+    }, function(r, err){
+      if(err){ toast('添加失败：' + err, true); return; }
+      state = r.state;
+      step(idx + 1);
+    });
+  }
+  step(0);
+}
+
+/* ---------- 日程页 ---------- */
+function renderSchList(){
+  var host = $('schList');
+  var list = (state.events || []).slice().sort(function(a, b){
+    if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+    var sa = a.start || '99:99', sb = b.start || '99:99';
+    return sa < sb ? -1 : (sa > sb ? 1 : 0);
+  });
+  if(list.length === 0){
+    host.innerHTML = '<div class="empty">还没有日程</div>';
+    return;
+  }
+  var html = '';
+  for(var i = 0; i < list.length; i++){
+    var e = list[i];
+    var dd = diffDays(e.date);
+    var tag = '';
+    if(dd !== null){
+      if(dd < 0) tag = '<span class="tag">已过</span>';
+      else if(dd === 0) tag = '<span class="tag green">今天</span>';
+      else if(dd === 1) tag = '<span class="tag">明天</span>';
+      else tag = '<span class="tag">' + (dd < 7 ? dd + ' 天后' : e.date) + '</span>';
+    }
+    html += '<div class="item">' +
+      '<div class="body">' +
+        '<div class="t1">' + esc(e.title) + tag + '</div>' +
+        '<div class="t2">' + (e.date || '未设日期') + ' ' + (e.start ? e.start : '全天') +
+          (e.end ? '-' + e.end : '') + (e.source ? ' · 来源 ' + esc(e.source) : '') + '</div>' +
+      '</div>' +
+      '<div class="ops">' +
+        '<button class="mini" data-sd="del" data-id="' + e.id + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' +
+      '</div></div>';
+  }
+  host.innerHTML = html;
+  host.onclick = function(e){
+    var el = e.target;
+    while(el && el !== host && !el.getAttribute('data-sd')) el = el.parentNode;
+    if(!el || el === host) return;
+    apiPost('events.delete', { id: el.getAttribute('data-id') }, function(r, err){
+      if(err){ toast('删除失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已删除');
+    });
+  };
+}
+
+/* ---------- 留言页 ---------- */
+function renderMsgList(){
+  var host = $('msgList');
+  var list = state.messages || [];
+  if(list.length === 0){
+    host.innerHTML = '<div class="empty">还没有留言</div>';
+    return;
+  }
+  var html = '';
+  for(var i = 0; i < list.length; i++){
+    var m = list[i];
+    html += '<div class="item">' +
+      '<div class="body">' +
+        '<div class="t1">' + esc(m.text) + '</div>' +
+        '<div class="t2">' + (m.author ? esc(m.author) + ' · ' : '') + hhmm(m.createdAt) + '</div>' +
+      '</div>' +
+      '<div class="ops">' +
+        '<button class="mini" data-md="del" data-id="' + m.id + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>' +
+      '</div></div>';
+  }
+  host.innerHTML = html;
+  host.onclick = function(e){
+    var el = e.target;
+    while(el && el !== host && !el.getAttribute('data-md')) el = el.parentNode;
+    if(!el || el === host) return;
+    apiPost('msg.delete', { id: el.getAttribute('data-id') }, function(r, err){
+      if(err){ toast('删除失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已删除');
+    });
+  };
+}
+
+/* ---------- 设置页 ---------- */
+var settingBound = false;
+function renderSettings(){
+  var s = state.settings;
+  $('setTitle').value = s.title || '';
+  $('setReload').value = s.reloadSec;
+  $('setW').value = s.boardW;
+  $('setH').value = s.boardH;
+  $('setFit').value = s.fitMode || 'auto';
+  $('setToken').value = s.webhookToken || '';
+  $('setFlash').className = 'toggle' + (s.fullFlash ? ' on' : '');
+  $('setInvert').className = 'toggle' + (s.invert ? ' on' : '');
+  $('setFooter').className = 'toggle' + (s.showFooter ? ' on' : '');
+  $('setNight').className = 'toggle' + (s.nightEnabled ? ' on' : '');
+  $('setNightStart').value = s.nightStart || '23:00';
+  $('setNightEnd').value = s.nightEnd || '07:00';
+  $('setNightMode').value = s.nightMode || 'black';
+  $('setWeatherCity').value = s.weatherCity || '深圳';
+  $('nightCfg').style.display = s.nightEnabled ? '' : 'none';
+  if(settingBound) return;
+  settingBound = true;
+
+  function bindText(id, key, parse){
+    $(id).addEventListener('blur', function(){
+      var v = $(id).value;
+      if(parse) v = parse(v);
+      saveSetting(key, v);
+    });
+  }
+  bindText('setTitle', 'title');
+  bindText('setReload', 'reloadSec', function(v){
+    v = parseInt(v, 10);
+    if(isNaN(v) || v < 30) v = 30;
+    if(v > 3600) v = 3600;
+    return v;
+  });
+  bindText('setW', 'boardW', function(v){ v = parseInt(v,10); return (isNaN(v)||v<200) ? 800 : v; });
+  bindText('setH', 'boardH', function(v){ v = parseInt(v,10); return (isNaN(v)||v<200) ? 480 : v; });
+  $('setFit').addEventListener('change', function(){ saveSetting('fitMode', $('setFit').value); });
+  bindText('setToken', 'webhookToken');
+  bindText('setWeatherCity', 'weatherCity');
+
+  function bindToggle(id, key){
+    $(id).onclick = function(){ saveSetting(key, !state.settings[key]); };
+  }
+  bindToggle('setFlash', 'fullFlash');
+  bindToggle('setInvert', 'invert');
+  bindToggle('setFooter', 'showFooter');
+  bindToggle('setNight', 'nightEnabled');
+  bindText('setNightStart', 'nightStart');
+  bindText('setNightEnd', 'nightEnd');
+  $('setNightMode').addEventListener('change', function(){ saveSetting('nightMode', $('setNightMode').value); });
+
+  var presets = document.querySelectorAll('[data-preset]');
+  for(var i = 0; i < presets.length; i++){
+    (function(btn){
+      btn.onclick = function(){
+        var p = btn.getAttribute('data-preset').split(',');
+        $('setW').value = p[0]; $('setH').value = p[1];
+        apiPost('settings.set', { settings: { boardW: +p[0], boardH: +p[1], fitMode: 'fixed' } }, function(r, err){
+          if(err){ toast('保存失败：' + err, true); return; }
+          state = r.state; refreshAll(); toast('已设为 ' + p[0] + '×' + p[1]);
+        });
+      };
+    })(presets[i]);
+  }
+}
+function saveSetting(key, val){
+  apiPost('settings.set', { settings: (function(){ var o = {}; o[key] = val; return o; })() }, function(r, err){
+    if(err){ toast('保存失败：' + err, true); load(); return; }
+    state = r.state;
+    refreshAll();
+    toast('已保存');
+  });
+}
+
+/* ---------- 备份：导出 / 导入 ---------- */
+function doExport(){
+  var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'inkboard-backup-' + todayStr(0) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  toast('已导出备份');
+}
+function doImport(file){
+  var fr = new FileReader();
+  fr.onload = function(){
+    var obj;
+    try{ obj = JSON.parse(fr.result); }
+    catch(e){ toast('文件不是合法 JSON', true); return; }
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/import', true);
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.onreadystatechange = function(){
+      if(xhr.readyState !== 4) return;
+      if(xhr.status === 200){
+        try{
+          var r = JSON.parse(xhr.responseText);
+          if(r.ok){ state = r.state; refreshAll(); toast('导入成功'); }
+          else toast('导入失败：' + (r.error || ''), true);
+        }catch(e){ toast('导入失败', true); }
+      }else toast('导入失败 HTTP ' + xhr.status, true);
+    };
+    xhr.send(JSON.stringify({ state: obj }));
+  };
+  fr.readAsText(file, 'utf-8');
+}
+
+/* ---------- 初始化 ---------- */
+function load(){
+  apiGet(function(s, err){
+    if(!s){ toast('读取失败：' + (err || ''), true); $('hsub').textContent = '读取失败：' + err; return; }
+    state = s;
+    refreshAll();
+  });
+}
+
+function bindGlobal(){
+  /* 底部 Tab */
+  var tabs = document.querySelectorAll('nav button');
+  for(var i = 0; i < tabs.length; i++){
+    (function(btn){
+      btn.onclick = function(){
+        curTab = btn.getAttribute('data-tab');
+        for(var j = 0; j < tabs.length; j++) tabs[j].className = (tabs[j] === btn ? 'on' : '');
+        var map = { comp:'tab-comp', sim:'tab-sim', todo:'tab-todo', hw:'tab-hw', sch:'tab-sch', msg:'tab-msg', set:'tab-set' };
+        /* 显示时清空内联 display，交回 CSS 决定：手机单列 block / PC 双列 grid。
+           不能写死 'block'，否则会覆盖断点里的 display:grid。 */
+        for(var k in map){ $(map[k]).style.display = (k === curTab) ? '' : 'none'; }
+        if(curTab === 'sim' && state){ ensureSimGeo(); renderSim(); }
+        window.scrollTo(0, 0);
+      };
+    })(tabs[i]);
+  }
+
+  $('btnOpen').onclick = function(){ window.open('/', '_blank'); };
+  $('btnRefresh').onclick = function(){ load(); toast('已刷新'); };
+
+  $('btnExport').onclick = doExport;
+  $('btnImport').onclick = function(){ $('fileIn').click(); };
+  $('fileIn').onchange = function(){
+    if(this.files && this.files[0]) doImport(this.files[0]);
+    this.value = '';
+  };
+
+  $('btnSaveFontDef').onclick = saveFontDefaults;
+  $('btnRestoreFontDef').onclick = restoreFontDefaults;
+
+  $('btnAddTodo').onclick = addTodo;
+  $('todoText').addEventListener('keydown', function(e){ if(e.keyCode === 13) addTodo(); });
+  $('btnToday').onclick = function(){ $('todoDue').value = todayStr(0); };
+  $('btnNoDue').onclick = function(){ $('todoDue').value = ''; };
+
+  $('btnAddHw').onclick = addHomework;
+  $('hwCancelEdit').onclick = cancelEditHw;
+  $('btnFormatHw').onclick = formatHomework;
+  $('btnFormatAdd').onclick = addFormattedHomework;
+  $('hwText').addEventListener('keydown', function(e){ if(e.keyCode === 13) addHomework(); });
+  $('hwBtnToday').onclick = function(){ $('hwDue').value = todayStr(0); };
+  $('hwBtnNoDue').onclick = function(){ $('hwDue').value = ''; };
+
+  $('btnAddMsg').onclick = addMsg;
+  $('btnAddSch').onclick = addSch;
+  $('schTitle').addEventListener('keydown', function(e){ if(e.keyCode === 13) addSch(); });
+  $('schDate').value = todayStr(0);
+  $('btnClearSch').onclick = function(){
+    if(!confirm('确定清空全部日程？此操作不可撤销。')) return;
+    apiPost('events.clear', {}, function(r, err){
+      if(err){ toast('失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已清空');
+    });
+  };
+
+  $('btnClearDone').onclick = function(){
+    if(!confirm('确定清除所有已完成的待办？此操作不可撤销。')) return;
+    apiPost('todo.clearDone', {}, function(r, err){
+      if(err){ toast('失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已清除');
+    });
+  };
+  $('btnClearDoneHw').onclick = function(){
+    if(!confirm('确定清除所有已完成的作业？此操作不可撤销。')) return;
+    apiPost('homework.clearDone', {}, function(r, err){
+      if(err){ toast('失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已清除');
+    });
+  };
+  $('btnDemo').onclick = function(){
+    if(!confirm('重置为示例数据？当前所有待办和留言会被覆盖（设置保留）。建议先导出备份。')) return;
+    apiPost('reset.demo', {}, function(r, err){
+      if(err){ toast('失败：' + err, true); return; }
+      state = r.state; refreshAll(); toast('已重置为示例数据');
+    });
+  };
+}
+
+function addTodo(){
+  var txt = $('todoText').value.trim();
+  if(!txt){ toast('请先输入待办内容', true); $('todoText').focus(); return; }
+  apiPost('todo.add', { text: txt, due: $('todoDue').value }, function(r, err){
+    if(err){ toast('添加失败：' + err, true); return; }
+    state = r.state;
+    $('todoText').value = '';
+    $('todoDue').value = todayStr(0);
+    refreshAll();
+    toast('已添加');
+  });
+}
+function addSch(){
+  var t = $('schTitle').value.trim();
+  if(!t){ toast('请先输入日程标题', true); $('schTitle').focus(); return; }
+  apiPost('events.add', { title: t, date: $('schDate').value, start: $('schStart').value }, function(r, err){
+    if(err){ toast('添加失败：' + err, true); return; }
+    state = r.state;
+    $('schTitle').value = '';
+    $('schStart').value = '';
+    refreshAll();
+    toast('已添加');
+  });
+}
+function addMsg(){
+  var txt = $('msgText').value.trim();
+  if(!txt){ toast('请先输入留言内容', true); $('msgText').focus(); return; }
+  apiPost('msg.add', { text: txt, author: $('msgAuthor').value.trim() }, function(r, err){
+    if(err){ toast('发布失败：' + err, true); return; }
+    state = r.state;
+    $('msgText').value = '';
+    refreshAll();
+    toast('已发布');
+  });
+}
+
+/* ==================================================================
+   布局模拟器（MatePad Paper 自由拖拽）
+   单向调用：用户拖拽 → 改 simGeo 内存数据 → renderSim()；
+   保存 → apiPost('layout.geo') → 更新 state。渲染函数之间互不调用。
+   基准分辨率与 server.py BOARD_GEO / index.html GEO_BOARD 保持一致。
+   ================================================================== */
+var SIM = { land:{w:1872,h:1404}, port:{w:1404,h:1872} };
+var SIM_MIN = { w:300, h:180 };
+var simOrient = 'land';          /* 当前编辑方向 */
+var simGeo = { land:{}, port:{} };  /* 编辑中几何：{uid:{x,y,w,h}} */
+var simLoaded = false;           /* 是否已初始化过（避免 20s 轮询冲掉未保存编辑） */
+var selSet = {};                 /* 当前多选：{uid:true}；单选也用同一数据结构，避免分支 */
+
+/* 进入/切换到模拟器时：补齐每个启用组件在两个方向上的几何。
+   已有几何（用户拖过 / 服务端存的）绝不覆盖；缺失的给一个不重叠的默认两列位置。 */
+function ensureSimGeo(){
+  var items = (state && state.layout) ? state.layout : [];
+  for(var oi=0; oi<2; oi++){
+    var orient = oi===0 ? 'land' : 'port';
+    var dim = SIM[orient];
+    if(!simGeo[orient]) simGeo[orient] = {};
+    /* 计算当前已占用的左右列最大 y，用于给新组件顺延摆放 */
+    var maxYL = 24, maxYR = 24;
+    for(var k in simGeo[orient]){
+      var ex = simGeo[orient][k];
+      if(ex.x < dim.w/2){ if(ex.y + ex.h + 24 > maxYL) maxYL = ex.y + ex.h + 24; }
+      else { if(ex.y + ex.h + 24 > maxYR) maxYR = ex.y + ex.h + 24; }
+    }
+    var halfW = Math.round((dim.w - 24*3) / 2);
+    var col = 0;
+    for(var j=0;j<items.length;j++){
+      var it = items[j];
+      if(!it.enabled) continue;
+      if(simGeo[orient][it.uid]) continue;      /* 已有，保留 */
+      var g = (it.geo && it.geo[orient]) ? it.geo[orient] : null;
+      if(g){
+        simGeo[orient][it.uid] = { x:g.x, y:g.y, w:g.w, h:g.h };
+      }else{
+        var isLeft = (col % 2 === 0); col++;
+        var w = halfW, h = 360;
+        var x = isLeft ? 24 : (24 + halfW + 24);
+        var y = isLeft ? maxYL : maxYR;
+        simGeo[orient][it.uid] = { x:x, y:y, w:w, h:h };
+        if(isLeft) maxYL += h + 24; else maxYR += h + 24;
+      }
+    }
+  }
+  simLoaded = true;
+}
+
+function simClamp(g){
+  var dim = SIM[simOrient];
+  g.w = Math.max(SIM_MIN.w, Math.min(g.w, dim.w));
+  g.h = Math.max(SIM_MIN.h, Math.min(g.h, dim.h));
+  g.x = Math.max(0, Math.min(g.x, dim.w - g.w));
+  g.y = Math.max(0, Math.min(g.y, dim.h - g.h));
+  return g;
+}
+
+/* 画布整体缩放适配容器宽度（内部几何始终用基准像素，缩放只影响视觉） */
+function simFit(){
+  var wrap = $('simWrap'), cvs = $('simCanvas');
+  var dim = SIM[simOrient];
+  var avail = wrap.clientWidth - 28;     /* 减去 padding */
+  var scale = Math.min(1, avail / dim.w);
+  cvs.style.width = dim.w + 'px';
+  cvs.style.height = dim.h + 'px';
+  cvs.style.transform = 'scale(' + scale + ')';
+  cvs.style.marginBottom = ((dim.h * scale) - dim.h) + 'px';  /* 抵消 scale 后的布局留白 */
+}
+
+function renderSim(){
+  if(!state){ return; }
+  var dim = SIM[simOrient];
+  var items = (state.layout) ? state.layout : [];
+  var cvs = $('simCanvas');
+  var html = '';
+  for(var i=0;i<items.length;i++){
+    var it = items[i];
+    var g = simGeo[simOrient][it.uid];
+    if(!g){ continue; }
+    var off = it.enabled ? '' : ' off';
+    var sel = selSet[it.uid] ? ' sel' : '';
+    html += '<div class="sbox' + off + sel + '" data-uid="' + it.uid + '" data-cid="' + it.id +
+            '" style="left:' + g.x + 'px;top:' + g.y + 'px;width:' + g.w + 'px;height:' + g.h + 'px;">' +
+            '<div class="slab">' + esc(CNAME[it.id] || it.id) + (it.enabled ? '' : '（已隐藏）') + '</div>' +
+            '<div class="sdim">' + Math.round(g.w) + '×' + Math.round(g.h) + '</div>' +
+            '<div class="handle h-nw" data-d="nw"></div><div class="handle h-n" data-d="n"></div>' +
+            '<div class="handle h-ne" data-d="ne"></div><div class="handle h-e" data-d="e"></div>' +
+            '<div class="handle h-se" data-d="se"></div><div class="handle h-s" data-d="s"></div>' +
+            '<div class="handle h-sw" data-d="sw"></div><div class="handle h-w" data-d="w"></div>' +
+            '</div>';
+  }
+  if(!html){ html = '<div class="sim-empty">没有可布局的组件，请先在「组件」里添加并启用。</div>'; }
+  cvs.innerHTML = html;
+  $('simStatus').textContent = '当前：' + (simOrient==='land' ? '横屏' : '竖屏') +
+    ' · 共 ' + items.length + ' 个组件 · 拖动中部移动、拖圆点缩放；从空白拖框可框选多组件；Ctrl/Cmd+点击切换选中';
+  simFit();
+  /* 状态变更后（如切换横竖屏、删除组件）保留 selection，但丢弃已不在布局中的项 */
+  pruneSelByLayout();
+  refreshMultiBar();
+}
+
+/* 把 selSet 里仍然存在布局中的 uid 保留下来；状态变更（删除组件）后清理已不存在的 uid */
+function pruneSelByLayout(){
+  var ex = {};
+  var layout = state && state.layout ? state.layout : [];
+  for(var i=0;i<layout.length;i++) ex[layout[i].uid] = true;
+  var n = 0; var next = {};
+  for(var k in selSet){
+    if(Object.prototype.hasOwnProperty.call(selSet, k) && ex[k]){ next[k] = true; n++; }
+  }
+  selSet = next;
+}
+
+/* 取当前选中的 uid 列表（不修改 selSet） */
+function simSelectedUids(){
+  var r = [];
+  for(var k in selSet){ if(Object.prototype.hasOwnProperty.call(selSet, k)) r.push(k); }
+  return r;
+}
+
+/* additive=true 时把 uids 加入既有选择；false 时替换 */
+function setSelection(uids, additive){
+  if(!additive) selSet = {};
+  for(var i=0;i<uids.length;i++) selSet[uids[i]] = true;
+  /* 同步 DOM：每个 .sbox 按 selSet 决定 .sel 状态 */
+  var all = $('simCanvas').querySelectorAll('.sbox');
+  for(var i=0;i<all.length;i++){
+    var uid = all[i].getAttribute('data-uid');
+    if(selSet[uid]) all[i].classList.add('sel'); else all[i].classList.remove('sel');
+  }
+  refreshMultiBar();
+}
+
+function clearSel(){
+  selSet = {};
+  var all = $('simCanvas').querySelectorAll('.sbox.sel');
+  for(var i=0;i<all.length;i++) all[i].classList.remove('sel');
+  refreshMultiBar();
+}
+
+/* 多选 toolbar：n>=1 时显示；n>=2 时显示「对齐」；n==1 时输入框预填该组件几何 */
+function refreshMultiBar(){
+  var n = simSelectedUids().length;
+  var bar = $('simMultiBar');
+  if(!bar) return;
+  if(n === 0){ bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  $('selCount').textContent = n;
+  $('grpAlign').style.display = (n >= 2) ? '' : 'none';
+  if(n === 1){
+    var onlyUid = simSelectedUids()[0];
+    var g = simGeo[simOrient][onlyUid];
+    if(g){
+      $('inGeoX').value = g.x;
+      $('inGeoY').value = g.y;
+      $('inGeoW').value = g.w;
+      $('inGeoH').value = g.h;
+    }
+  }else{
+    /* 多选时输入框留空：用户自填要应用的值，避免歧义 */
+    $('inGeoX').value = '';
+    $('inGeoY').value = '';
+    $('inGeoW').value = '';
+    $('inGeoH').value = '';
+  }
+}
+
+/* 对齐：top=所有 y 取最小；bottom=所有下边对齐到 max(y+h)；left/right 类似 */
+function alignSelection(kind){
+  var ids = simSelectedUids();
+  if(ids.length < 2){ toast('对齐至少需要选中 2 个组件', true); return; }
+  var ref;
+  if(kind === 'top'){
+    ref = Infinity;
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(g && g.y < ref) ref = g.y; }
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(!g) continue;
+      g.y = ref;
+      var el = $('simCanvas').querySelector('.sbox[data-uid="'+ids[i]+'"]');
+      if(el) el.style.top = g.y + 'px';
+    }
+  }else if(kind === 'bottom'){
+    ref = -Infinity;
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(g && g.y+g.h > ref) ref = g.y+g.h; }
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(!g) continue;
+      g.y = ref - g.h;
+      var el = $('simCanvas').querySelector('.sbox[data-uid="'+ids[i]+'"]');
+      if(el) el.style.top = g.y + 'px';
+    }
+  }else if(kind === 'left'){
+    ref = Infinity;
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(g && g.x < ref) ref = g.x; }
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(!g) continue;
+      g.x = ref;
+      var el = $('simCanvas').querySelector('.sbox[data-uid="'+ids[i]+'"]');
+      if(el) el.style.left = g.x + 'px';
+    }
+  }else if(kind === 'right'){
+    ref = -Infinity;
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(g && g.x+g.w > ref) ref = g.x+g.w; }
+    for(var i=0;i<ids.length;i++){ var g = simGeo[simOrient][ids[i]]; if(!g) continue;
+      g.x = ref - g.w;
+      var el = $('simCanvas').querySelector('.sbox[data-uid="'+ids[i]+'"]');
+      if(el) el.style.left = g.x + 'px';
+    }
+  }
+  refreshMultiBar();
+}
+
+/* 把 X/Y/W/H 输入值应用到当前所有选中的组件（单选 = 修改该组件；多选 = 全部设为相同） */
+function applyGeoInputs(){
+  var ids = simSelectedUids();
+  if(ids.length === 0){ toast('请先选中至少 1 个组件', true); return; }
+  var dim = SIM[simOrient];
+  var x = parseInt($('inGeoX').value, 10);
+  var y = parseInt($('inGeoY').value, 10);
+  var w = parseInt($('inGeoW').value, 10);
+  var h = parseInt($('inGeoH').value, 10);
+  if(isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h)){
+    toast('请输入合法的整数（X/Y/宽/高）', true); return;
+  }
+  w = Math.max(SIM_MIN.w, Math.min(w, dim.w));
+  h = Math.max(SIM_MIN.h, Math.min(h, dim.h));
+  x = Math.max(0, Math.min(x, dim.w - w));
+  y = Math.max(0, Math.min(y, dim.h - h));
+  for(var i=0;i<ids.length;i++){
+    var g = simGeo[simOrient][ids[i]];
+    if(!g) continue;
+    g.x = x; g.y = y; g.w = w; g.h = h;
+    var el = $('simCanvas').querySelector('.sbox[data-uid="'+ids[i]+'"]');
+    if(el){
+      el.style.left = g.x+'px'; el.style.top = g.y+'px';
+      el.style.width = g.w+'px'; el.style.height = g.h+'px';
+      var dEl = el.querySelector('.sdim');
+      if(dEl) dEl.textContent = g.w + '×' + g.h;
+    }
+  }
+  refreshMultiBar();
+}
+
+/* 指针交互：鼠标与触摸统一用 Pointer Events（不支持则回退鼠标事件） */
+function simPoint(e){
+  var cvs = $('simCanvas');
+  var rect = cvs.getBoundingClientRect();
+  var dim = SIM[simOrient];
+  var scale = rect.width / dim.w;     /* 视觉缩放：把屏幕像素换算回基准像素 */
+  return {
+    x: (e.clientX - rect.left) / scale,
+    y: (e.clientY - rect.top) / scale
+  };
+}
+/* drag 模式：
+   - {mode:'move', targets:[{uid, ox, oy}], sx, sy}：平移当前选择中的全部组件
+   - {mode:'nw'|'n'|...'move' 上的 resize 方向, targets:[{uid, ox, oy, ow, oh}], sx, sy}：缩放
+   - {mode:'marquee', sx, sy, marquee:divEl, additive:bool}：框选过程
+   其余字段为辅助。 */
+var drag = null;
+
+function simStart(e){
+  /* 拆出点中的元素：handle 优先识别，但命中后不 break 继续上溯 .sbox 取 uid
+     （修复：之前在 handle 处 break 会让 boxEl=null，触发 (handleEl && boxEl) 失败 → 掉到框选分支） */
+  var handleEl = null, boxEl = null;
+  var el = e.target;
+  while(el && el !== document && el.classList){
+    if(el.classList.contains('handle')){ handleEl = el; /* 不 break，继续找 sbox */ }
+    if(el.classList.contains('sbox')){ boxEl = el; break; }
+    el = el.parentNode;
+  }
+
+  /* A：缩放手柄 → 单 / 多 选统一处理（缩放各自独立的 ow/oh） */
+  if(handleEl && boxEl){
+    var uid = boxEl.getAttribute('data-uid');
+    var g = simGeo[simOrient][uid];
+    if(!g) return;
+    var additive = !!(e.ctrlKey || e.metaKey || e.shiftKey);
+    if(!selSet[uid]) setSelection([uid], additive);
+    var p = simPoint(e);
+    var d = handleEl.getAttribute('data-d');
+    var targets = [];
+    for(var k in selSet){
+      if(!Object.prototype.hasOwnProperty.call(selSet, k)) continue;
+      var gg = simGeo[simOrient][k];
+      if(gg) targets.push({ uid:k, ox:gg.x, oy:gg.y, ow:gg.w, oh:gg.h });
+    }
+    drag = { mode:d, targets:targets, sx:p.x, sy:p.y };
+    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch(_){}
+    e.preventDefault();
+    return;
+  }
+
+  /* B：点击组件中部 */
+  if(boxEl){
+    var uid = boxEl.getAttribute('data-uid');
+    var g = simGeo[simOrient][uid];
+    if(!g) return;
+    var additive = !!(e.ctrlKey || e.metaKey || e.shiftKey);
+    if(additive){
+      /* Ctrl/Cmd/Shift：切换该 uid 的选中态；不进入拖动模式（避免点击误触拖动） */
+      if(selSet[uid]){ delete selSet[uid]; } else { selSet[uid] = true; }
+      /* 同步 DOM */
+      var all = $('simCanvas').querySelectorAll('.sbox');
+      for(var i=0;i<all.length;i++){
+        var u = all[i].getAttribute('data-uid');
+        if(selSet[u]) all[i].classList.add('sel'); else all[i].classList.remove('sel');
+      }
+      refreshMultiBar();
+      return;
+    }
+    /* 非加选：替换选择为该单个组件；其后用 move 模式拖动整体 */
+    setSelection([uid], false);
+    var p = simPoint(e);
+    var targets = [];
+    for(var k in selSet){
+      if(!Object.prototype.hasOwnProperty.call(selSet, k)) continue;
+      var gg = simGeo[simOrient][k];
+      if(gg) targets.push({ uid:k, ox:gg.x, oy:gg.y });
+    }
+    drag = { mode:'move', targets:targets, sx:p.x, sy:p.y };
+    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch(_){}
+    e.preventDefault();
+    return;
+  }
+
+  /* C：点击画布空白 → 进入框选；非加选时先清空以便"画一下框"=重新选 */
+  var additive = !!(e.ctrlKey || e.metaKey || e.shiftKey);
+  if(!additive) clearSel();
+  var p = simPoint(e);
+  var mar = document.createElement('div');
+  mar.className = 'marquee';
+  mar.style.left = p.x + 'px';
+  mar.style.top = p.y + 'px';
+  mar.style.width = '0px';
+  mar.style.height = '0px';
+  $('simCanvas').appendChild(mar);
+  drag = { mode:'marquee', sx:p.x, sy:p.y, marquee:mar, additive:additive };
+  try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch(_){}
+  e.preventDefault();
+}
+
+function simMove(e){
+  if(!drag) return;
+  var p = simPoint(e);
+
+  if(drag.mode === 'marquee'){
+    var x1 = Math.min(drag.sx, p.x), y1 = Math.min(drag.sy, p.y);
+    var x2 = Math.max(drag.sx, p.x), y2 = Math.max(drag.sy, p.y);
+    drag.marquee.style.left = x1 + 'px';
+    drag.marquee.style.top = y1 + 'px';
+    drag.marquee.style.width = (x2-x1) + 'px';
+    drag.marquee.style.height = (y2-y1) + 'px';
+    /* 实时预览：完全在框内的组件临时加上 .sel 视觉（commit 时再统一刷） */
+    var all = $('simCanvas').querySelectorAll('.sbox');
+    for(var i=0;i<all.length;i++){
+      var uid = all[i].getAttribute('data-uid');
+      var g = simGeo[simOrient][uid];
+      if(!g) continue;
+      var inside = (g.x >= x1 && g.y >= y1 && g.x+g.w <= x2 && g.y+g.h <= y2);
+      if(inside){
+        if(!all[i].classList.contains('sel')) all[i].classList.add('sel','preview');
+      }else{
+        if(drag.additive){
+          if(selSet[uid]) all[i].classList.add('sel'); else all[i].classList.remove('sel');
+        }else{
+          if(!all[i].classList.contains('preview')) all[i].classList.remove('sel');
+        }
+        all[i].classList.remove('preview');
+      }
+    }
+    e.preventDefault();
+    return;
+  }
+
+  var dim = SIM[simOrient];
+  var dx = p.x - drag.sx, dy = p.y - drag.sy;
+
+  if(drag.mode === 'move'){
+    for(var i=0;i<drag.targets.length;i++){
+      var t = drag.targets[i];
+      var g = simGeo[simOrient][t.uid];
+      if(!g) continue;
+      g.x = Math.round(t.ox + dx);
+      g.y = Math.round(t.oy + dy);
+      simClamp(g);
+      var el = $('simCanvas').querySelector('.sbox[data-uid="'+t.uid+'"]');
+      if(el){ el.style.left = g.x + 'px'; el.style.top = g.y + 'px'; }
+    }
+    e.preventDefault();
+    return;
+  }
+
+  /* 缩放（任意方向） */
+  var m = drag.mode;
+  for(var i=0;i<drag.targets.length;i++){
+    var t = drag.targets[i];
+    var g = simGeo[simOrient][t.uid];
+    if(!g) continue;
+    var nx = t.ox, ny = t.oy, nw = t.ow, nh = t.oh;
+    if(m.indexOf('e') >= 0){ nw = t.ow + dx; }
+    if(m.indexOf('s') >= 0){ nh = t.oh + dy; }
+    if(m.indexOf('w') >= 0){ nw = t.ow - dx; nx = t.ox + dx; }
+    if(m.indexOf('n') >= 0){ nh = t.oh - dy; ny = t.oy + dy; }
+    if(nw < SIM_MIN.w){ if(m.indexOf('w')>=0) nx -= (SIM_MIN.w - nw); nw = SIM_MIN.w; }
+    if(nh < SIM_MIN.h){ if(m.indexOf('n')>=0) ny -= (SIM_MIN.h - nh); nh = SIM_MIN.h; }
+    nw = Math.min(nw, dim.w); nh = Math.min(nh, dim.h);
+    nx = Math.max(0, Math.min(nx, dim.w - nw));
+    ny = Math.max(0, Math.min(ny, dim.h - nh));
+    g.x = Math.round(nx); g.y = Math.round(ny); g.w = Math.round(nw); g.h = Math.round(nh);
+    var el = $('simCanvas').querySelector('.sbox[data-uid="'+t.uid+'"]');
+    if(el){
+      el.style.left = g.x+'px'; el.style.top = g.y+'px';
+      el.style.width = g.w+'px'; el.style.height = g.h+'px';
+      var dEl = el.querySelector('.sdim');
+      if(dEl) dEl.textContent = g.w + '×' + g.h;
+    }
+  }
+  e.preventDefault();
+}
+
+function simEnd(e){
+  if(!drag){ return; }
+  if(drag.mode === 'marquee'){
+    var mar = drag.marquee;
+    /* 计算 marquee 矩形（基准像素） */
+    var cvsRect = $('simCanvas').getBoundingClientRect();
+    var dim = SIM[simOrient];
+    var scale = cvsRect.width / dim.w;
+    var mRect = mar.getBoundingClientRect();
+    var x1 = (mRect.left - cvsRect.left) / scale;
+    var y1 = (mRect.top - cvsRect.top) / scale;
+    var x2 = (mRect.right - cvsRect.left) / scale;
+    var y2 = (mRect.bottom - cvsRect.top) / scale;
+    var w = x2 - x1, h = y2 - y1;
+    if(mar.parentNode) mar.parentNode.removeChild(mar);
+    /* 零面积视为"点击空白"：非加选则清空，加选则保持 */
+    if(w < 6 && h < 6){
+      if(!drag.additive){
+        selSet = {};
+      }
+    }else{
+      /* 命中 = 完全在框内的组件 */
+      var items = state.layout || [];
+      var hits = [];
+      for(var i=0;i<items.length;i++){
+        var it = items[i];
+        var g = simGeo[simOrient][it.uid];
+        if(!g) continue;
+        if(g.x >= x1 && g.y >= y1 && g.x+g.w <= x2 && g.y+g.h <= y2) hits.push(it.uid);
+      }
+      if(!drag.additive) selSet = {};
+      for(var i=0;i<hits.length;i++) selSet[hits[i]] = true;
+    }
+    /* 同步 DOM：清掉所有 .preview */
+    var all = $('simCanvas').querySelectorAll('.sbox');
+    for(var i=0;i<all.length;i++){
+      var u = all[i].getAttribute('data-uid');
+      all[i].classList.remove('preview');
+      if(selSet[u]) all[i].classList.add('sel'); else all[i].classList.remove('sel');
+    }
+    refreshMultiBar();
+  }
+  drag = null;
+  try { e && e.releasePointerCapture && e.pointerId != null && e.target && e.target.releasePointerCapture && e.target.releasePointerCapture(e.pointerId); } catch(_){}
+}
+
+function bindSim(){
+  var cvs = $('simCanvas');
+  cvs.addEventListener('pointerdown', simStart);
+  window.addEventListener('pointermove', simMove);
+  window.addEventListener('pointerup', simEnd);
+  window.addEventListener('pointercancel', simEnd);
+
+  /* 切换横竖屏：清掉旧方向的临时 marquee、保留 selection（方向切换后只保留仍存在的项） */
+  $('simLand').onclick = function(){
+    simOrient = 'land';
+    $('simLand').classList.add('on'); $('simPort').classList.remove('on');
+    /* 切换方向前先把当前选择项在目标方向的几何补齐（避免切到没有几何的方向后丢失视觉） */
+    if(state && state.layout){
+      for(var i=0;i<state.layout.length;i++){
+        var it = state.layout[i];
+        if(selSet[it.uid] && !simGeo.land[it.uid] && it.geo && it.geo.land){
+          simGeo.land[it.uid] = it.geo.land;
+        }
+      }
+    }
+    renderSim();
+  };
+  $('simPort').onclick = function(){
+    simOrient = 'port';
+    $('simPort').classList.add('on'); $('simLand').classList.remove('on');
+    if(state && state.layout){
+      for(var i=0;i<state.layout.length;i++){
+        var it = state.layout[i];
+        if(selSet[it.uid] && !simGeo.port[it.uid] && it.geo && it.geo.port){
+          simGeo.port[it.uid] = it.geo.port;
+        }
+      }
+    }
+    renderSim();
+  };
+
+  /* 对齐按钮 */
+  var alignBtns = document.querySelectorAll('#grpAlign .ali[data-align]');
+  for(var i=0;i<alignBtns.length;i++){
+    (function(btn){
+      btn.onclick = function(){ alignSelection(btn.getAttribute('data-align')); };
+    })(alignBtns[i]);
+  }
+  /* 应用 X/Y/W/H 输入框到所有选中 */
+  $('applyGeo').onclick = applyGeoInputs;
+  ['inGeoX','inGeoY','inGeoW','inGeoH'].forEach(function(id){
+    var el = $(id);
+    if(!el) return;
+    el.addEventListener('keydown', function(e){ if(e.keyCode === 13){ e.preventDefault(); applyGeoInputs(); } });
+  });
+  /* 取消选择 */
+  $('clearSel').onclick = function(){ clearSel(); };
+
+  $('btnSimSave').onclick = function(){
+    if(!state || !state.layout){ toast('数据未加载', true); return; }
+    var items = [];
+    for(var i=0;i<state.layout.length;i++){
+      var it = state.layout[i];
+      var geo = {};
+      if(simGeo.land[it.uid]) geo.land = simGeo.land[it.uid];
+      if(simGeo.port[it.uid]) geo.port = simGeo.port[it.uid];
+      items.push({ uid:it.uid, id:it.id, geo:geo });
+    }
+    apiPost('layout.geo', { items:items, mode:'free' }, function(r, err){
+      if(err){ toast('保存失败：' + err, true); return; }
+      state = r.state;
+      /* 用服务端清洗后的几何回灌编辑器（去掉钳制差异） */
+      simGeo = { land:{}, port:{} };
+      for(var k=0;k<state.layout.length;k++){
+        var c = state.layout[k];
+        if(c.geo && c.geo.land) simGeo.land[c.uid] = c.geo.land;
+        if(c.geo && c.geo.port) simGeo.port[c.uid] = c.geo.port;
+      }
+      /* 保存后清掉选择：避免下次保存前误以为还有未保存的修改 */
+      clearSel();
+      renderSim();
+      toast('已保存并同步到显示端');
+    });
+  };
+
+  $('btnSimAuto').onclick = function(){
+    if(!confirm('恢复自动瀑布流排版？自由位置会保留（随时可再切回自由布局），显示端立即改用自动排版。')) return;
+    apiPost('settings.set', { settings:{ layoutMode:'auto' } }, function(r2, err2){
+      if(err2){ toast('切换失败：' + err2, true); return; }
+      state = r2.state;
+      toast('已恢复自动排版，显示端将自动套用');
+    });
+  };
+
+  window.addEventListener('resize', function(){ if(curTab === 'sim') simFit(); });
+  /* ESC 取消选择 */
+  window.addEventListener('keydown', function(e){
+    if(curTab !== 'sim') return;
+    if(e.key === 'Escape'){
+      if(simSelectedUids().length > 0){ clearSel(); }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  $('todoDue').value = todayStr(0);
+  $('hwDue').value = todayStr(0);
+  bindGlobal();
+  bindSim();
+  load();
+  setInterval(load, 20000);   /* 20 秒静默同步，其它设备改了也能看到 */
+});
+</script>
+</body>
+</html>

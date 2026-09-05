@@ -1,0 +1,31 @@
+{
+  "_comment": "复制本文件为 config.json 后填写。appid/secret 在 QQ 开放平台(q.qq.com) 创建机器人后获得；allowed_openids 留空=允许所有人（首次跑先看日志里打印的 openid，再填进来锁定）。",
+  "appid": "",
+  "secret": "",
+  "allowed_openids": [],
+  "reply_enabled": true,
+  "media_dir": "",
+  "llm": {
+    "_comment": "大模型解析作业：OpenAI 兼容接口。火山方舟示例 base_url=https://ark.cn-beijing.volces.com/api/v3，model=你的接入点ID（如 ark-code-latest）。未填 api_key 时自动回退到规则解析。vision=true 时纯图片作业会把图发给支持视觉的模型识别；若所用模型不支持图片，会自动退化为纯文字重试。",
+    "enabled": true,
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "api_key": "",
+    "model": "ark-code-latest",
+    "timeout": 30,
+    "max_retries": 1,
+    "vision": true,
+    "fallback_on_error": true,
+    "_comment2": "output_spec：用户自定义输出规范（自由文本），会追加到系统提示末尾、优先级最高；QQ转发解析和管理端AI格式化都会使用。留空则仅用内置规范。",
+    "output_spec": ""
+  },
+  "inkboard": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8765,
+    "token": ""
+  },
+  "wecom": {
+    "enabled": true,
+    "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_WECOM_BOT_KEY"
+  }
+}

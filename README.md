@@ -1,0 +1,65 @@
+# inkbot
+
+家庭自动化小工具集合，包含两个相互配合的本地服务：
+
+| 子项目 | 作用 |
+|---|---|
+| **inkboard/** | 家庭信息看板（InkBoard）。HTTP 服务（默认端口 8765），墨水屏/平板展示日程、家庭作业、天气、课程表等；带管理端。`sync_events.py` 从企业微信日历拉取日程。 |
+| **qq-homework-bot/** | QQ 作业收集机器人。手机 QQ 转发老师作业消息给机器人，自动解析（可选大模型整理）后写入 InkBoard「家庭作业」组件，并可转发到企业微信群。 |
+
+两个服务通过本机 HTTP（`127.0.0.1:8765`）通信，均由 Windows 任务计划程序在登录时自启：
+
+- `InkBoardServer` → `inkboard/server.py --port 8765`
+- `InkBoardSyncEvents` → `inkboard/sync.bat`（定时从企微同步日程）
+- `QQHomeworkBot` → `qq-homework-bot/homework_bot.py`
+
+> 注：同层级的 `wecom-reminder/`（企微日程提醒推送）**不属于**本仓库，不纳入备份。
+
+## 目录结构
+
+```
+inkbot/
+├── inkboard/
+│   ├── server.py          看板 HTTP 服务
+│   ├── sync_events.py     企微日程同步
+│   ├── sync.bat / start.bat
+│   ├── smoke_test.py      离线冒烟测试
+│   └── web/               前端页面（显示端 + 管理端）
+└── qq-homework-bot/
+    ├── homework_bot.py    机器人主程序
+    ├── selftest.py        离线自测（无需 appid）
+    ├── config.example.json 配置模板（复制为 config.json 填写）
+    ├── requirements.txt
+    └── start.bat
+```
+
+各子项目的详细说明见其目录内的 `README.md`。
+
+## 首次部署（换机器 / 重新克隆后）
+
+1. 安装 Python 3.13，创建 qqbot 虚拟环境并装依赖：
+   ```bat
+   python -m venv C:\Users\<你>\.workbuddy\binaries\python\envs\qqbot
+   C:\Users\<你>\.workbuddy\binaries\python\envs\qqbot\Scripts\python.exe -m pip install -r qq-homework-bot\requirements.txt
+   ```
+2. 复制配置模板并填写密钥（**config.json 不入库，需自行准备**）：
+   - `qq-homework-bot/config.json`（QQ appid/secret、可选 LLM api_key、企微 webhook）
+   - inkboard 的 `ADMIN_CREDENTIALS.txt`、`READONLY_TOKEN.txt`（管理密码 / 只读令牌）
+3. 注册任务计划（登录自启），路径按实际位置调整，参考各 README。
+
+> 密钥、运行数据（`data/`）、日志均**不入库**，见 `.gitignore`。
+
+## 备份与同步（GitHub）
+
+本仓库只备份**代码与配置模板**，不含任何密钥和个人数据。
+
+日常提交：
+
+```powershell
+cd <仓库根>\inkbot
+git add -A
+git commit -m "update"
+git push
+```
+
+换新机器克隆后，按上面「首次部署」补齐密钥和数据目录即可恢复运行。

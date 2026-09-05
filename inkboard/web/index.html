@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<!-- InkBoard 显示端 · 墨水屏常驻页面 · 全内联零外部依赖 · ES5 兼容老安卓浏览器 -->
+<html lang="zh-CN" data-page-node-id="XPW0436WhFDtyd3oyRdwnl">
+<head data-page-node-id="XBOGL2tsEQutwVd7jSU99P">
+<meta charset="utf-8" data-page-node-id="fa54FaBIF9yOGPCSXo7Oq5">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" data-page-node-id="BhBQgCGpOjzBF6qpR1oiLG">
+<meta name="theme-color" content="#ffffff" data-page-node-id="GIFYSAw4wyRx6tCSbre8Di">
+<title>InkBoard 家庭信息台</title>
+<style>
+/* ============ 基础 ============ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:#ffffff; color:#000000;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:none; font-smooth:never;
+  -webkit-user-select:none; user-select:none;
+}
+body.invert { background:#000000; color:#ffffff; }
+/* ============ 夜间自动息屏 ============ */
+body.night { background:#000000; color:#000000; }
+body.night #stage { background:#000000; }
+body.night #board { background:#000000; --fg:#000000; --bg:#000000; }
+body.night[data-nightmode="black"] .blk { display:none; }                        /* 整页全黑：对睡眠零干扰 */
+body.night[data-nightmode="clock"] .blk:not([data-cid="clock"]) { display:none; } /* 只留时钟 */
+body.night[data-nightmode="clock"] .blk[data-cid="clock"] { opacity:0.45; }      /* 时钟压暗，不刺眼 */
+body.night #foot { opacity:0.2; }
+
+/* 数字等宽：墨水屏上避免时钟数字宽度跳动导致整块重绘 */
+.num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
+
+/* ============ 舞台（分辨率适配） ============ */
+#stage {
+  position:absolute; top:0; left:0;
+  transform-origin:0 0;
+  background:inherit;
+}
+#board {
+  position:relative;
+  /* 纵向堆叠：整行块 与 双列段(.band) 自上而下排列；
+     双列段内部才左右两列、按实测高度平衡（矮块自动填到高块旁的空位）。 */
+  display:flex;
+  flex-direction:column;
+  width:100%; min-height:100%;
+  padding:calc(var(--u) * 3);
+  overflow:visible;
+}
+/* 竖屏：内容可能超过一屏（如课程表全部节次）——限定 #board 高度等于视口，
+   超出部分在板内自然滚动，组件高度按内容自适应、绝不裁切。
+   横屏保持 overflow:visible（一屏内排版，不滚动）。 */
+body.portrait #stage { overflow:hidden; }
+body.portrait #board {
+  height:100%; min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + var(--u) * 3);
+}
+
+/* ============ 自由布局模式（管理端模拟器拖拽，layoutMode=free） ============
+   #board 是一块固定基准分辨率的坐标平面（横 1872×1404 / 竖 1404×1872），
+   整体经 #stage scale 缩放到实际屏幕；组件按 geo 绝对定位。 */
+#board.free { display:block; padding:0; overflow:hidden; }
+#board.free .blk.freeblk {
+  position:absolute;
+  display:flex; flex-direction:column;
+  overflow:hidden; padding:calc(var(--u) * 1.4);
+}
+#board.free .blk.freeblk > .blk-hd { flex:none; }
+#board.free .blk.freeblk > *:last-child {
+  flex:1 1 auto; min-height:0; min-width:0;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+/* 双列段：横屏两列并排，竖屏也允许（但组件已被设为整行单列，见 componentCols） */
+.band { display:flex; flex-direction:row; align-items:flex-start; width:100%; }
+body.portrait .band { flex-direction:column; }
+.mcol {
+  display:flex; flex-direction:column;
+  min-width:0; flex:0 0 50%; max-width:50%;
+}
+body.portrait .mcol { flex:1 1 auto; max-width:100%; }
+
+/* ============ 区块 ============ */
+.blk {
+  position:relative;
+  font-size:var(--us, calc(var(--u) * 1));
+  padding:0 calc(var(--u) * 1.6) calc(var(--u) * 2.2);
+  min-width:0;                   /* 弹性子项默认 min-width:auto，会被长文本撑破 */
+  break-inside:avoid;
+}
+
+.blk-hd {
+  display:flex; align-items:center; gap:0.5em;
+  font-size:1.6em; font-weight:700; letter-spacing:0.06em;
+  margin-bottom:0.7em; padding-bottom:0.35em;
+  border-bottom:calc(var(--u) * 0.35) solid currentColor;
+}
+.blk-hd svg { width:1.05em; height:1.05em; flex:none; }
+.blk-hd .cnt { margin-left:auto; font-weight:400; font-size:0.85em; opacity:0.75; }
+
+/* ============ 组件：时间 ============ */
+.c-clock { display:flex; align-items:baseline; line-height:0.92; font-weight:800; letter-spacing:-0.02em; width:100%; }
+.c-clock .hhmm { font-size:var(--fsize); white-space:nowrap; }
+.c-clock .ss   { font-size:calc(var(--fsize) * 0.42); font-weight:700; margin-left:0.12em; opacity:0.8; }
+.c-clock .apm  { font-size:calc(var(--fsize) * 0.32); font-weight:700; margin-left:0.15em; }
+
+/* 竖屏：时钟独占整行，居中显示，更醒目 */
+body.portrait .c-clock { justify-content:center; padding:0.2em 0; }
+
+/* ============ 组件：日期 ============ */
+.c-date { display:flex; flex-direction:column; justify-content:center; height:100%; }
+.c-date .d1 { font-size:var(--fsize); font-weight:800; line-height:1.02; letter-spacing:-0.01em; }
+.c-date .d2 { font-size:calc(var(--fsize) * 0.46); font-weight:600; margin-top:0.35em; opacity:0.85; }
+.c-date .d3 { font-size:calc(var(--fsize) * 0.38); margin-top:0.5em; opacity:0.7; line-height:1.35; }
+
+/* 竖屏：日期与星期/副标题横向排布，更紧凑 */
+body.portrait .c-date { flex-direction:row; align-items:baseline; justify-content:center; gap:0.6em; flex-wrap:wrap; }
+body.portrait .c-date .d2 { margin-top:0; }
+body.portrait .c-date .d3 { margin-top:0; width:100%; text-align:center; }
+
+/* ============ 组件：待办 ============ */
+.c-todo .row {
+  display:flex; align-items:flex-start; gap:0.55em;
+  padding:0.42em 0; font-size:var(--fsize); line-height:1.25;
+}
+.c-todo .row .box { width:1.05em; height:1.05em; flex:none; margin-top:0.06em; }
+.c-todo .row .box svg { width:100%; height:100%; display:block; }
+.c-todo .row .tx { flex:1; min-width:0; word-break:break-all; }
+.c-todo .row .due { font-size:0.72em; font-weight:700; flex:none; padding:0.1em 0.4em; }
+/* 逾期：反白块（墨水屏上比红色更清晰） */
+.c-todo .row.overdue { background:currentColor; }
+.c-todo .row.overdue .tx, .c-todo .row.overdue .due { color:var(--bg); font-weight:800; }
+.c-todo .row.overdue .box { color:var(--fg); }
+.c-todo .row.today .tx { font-weight:800; }
+.c-todo .row.done .tx { text-decoration:line-through; opacity:0.45; }
+.c-todo .txsrc { font-size:0.74em; opacity:0.55; flex:none; margin-left:0.4em; }
+.c-todo .txsrc.subj { opacity:0.85; color:var(--accent,#3a6); background:rgba(0,0,0,0.05); border-radius:0.4em; padding:0.02em 0.4em; }
+.c-todo .empty { font-size:calc(var(--fsize) * 0.9); opacity:0.45; padding:0.35em 0; }
+
+/* ============ 组件：家庭作业（当天作业平铺，复选框点按打勾） ============ */
+.c-homework { font-size:var(--fsize); }
+.c-homework .row {
+  display:flex; align-items:flex-start; gap:0.5em;
+  padding:0.36em 0; line-height:1.25; font-size:var(--fsize);
+}
+/* 整行可点（显示端直接打勾）：手型光标，复选框留出够大的触控区 */
+.c-homework .row[data-hwid] { cursor:pointer; }
+.c-homework .row .box {
+  width:1.15em; height:1.15em; flex:none; margin-top:0.04em;
+  margin-right:0.15em; display:inline-flex; align-items:center; justify-content:center;
+}
+.c-homework .row .box svg { width:100%; height:100%; display:block; }
+.c-homework .row .tx { flex:1; min-width:0; word-break:break-all; }
+.c-homework .row .th { font-size:0.82em; opacity:0.6; font-weight:600; margin-left:0.2em; }
+/* 已完成：整行删除线并变灰；再点取消即恢复 */
+.c-homework .row.done { opacity:0.42; }
+.c-homework .row.done .tx { text-decoration:line-through; }
+
+/* 按科目分组的内联排版：科目名+冒号只出现一次，同科目多条用顿号连接；每条仍是独立可点复选框 */
+.c-homework .hw-grp { padding:0.32em 0; line-height:1.5; }
+.c-homework .hw-subj { font-weight:700; margin-right:0.15em; }
+.c-homework .hw-it { display:inline-flex; align-items:flex-start; cursor:pointer; }
+.c-homework .hw-it .box {
+  width:1.05em; height:1.05em; flex:none; margin-top:0.06em; margin-right:0.12em;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.c-homework .hw-it .box svg { width:100%; height:100%; display:block; }
+.c-homework .hw-it .t { word-break:break-all; }
+.c-homework .hw-sep { margin:0 0.18em; opacity:0.7; }
+.c-homework .hw-it.done { opacity:0.45; }
+.c-homework .hw-it.done .t { text-decoration:line-through; }
+/* 周末教学窗口：日期小标题（周五/六/日/一） */
+.c-homework .hw-day { font-weight:700; opacity:0.72; font-size:0.86em; margin:0.55em 0 0.05em; padding-bottom:0.12em; border-bottom:1px solid rgba(0,0,0,0.18); }
+.c-homework .hw-day:first-child { margin-top:0; }
+
+/* 竖屏：组件内容字号放大，单列堆叠下更易读（覆盖内联 --fsize） */
+body.portrait .c-todo   { --fsize:calc(var(--us) * 3.2) !important; }
+body.portrait .c-msg    { --fsize:calc(var(--us) * 3.0) !important; }
+body.portrait .c-sch    { --fsize:calc(var(--us) * 3.1) !important; }
+/* 家庭作业字号由组件 size 配置内联决定（竖屏在 JS 里乘 1.15），不在此写死 */
+body.portrait .blk-hd   { font-size:1.75em; }
+
+/* ============ 组件：留言 ============ */
+.c-msg .item { padding:0.4em 0; font-size:var(--fsize); line-height:1.3; }
+.c-msg .item .tx { word-break:break-all; white-space:pre-wrap; }
+.c-msg .item .meta { font-size:0.72em; opacity:0.65; margin-top:0.18em; }
+.c-msg .empty { font-size:calc(var(--fsize) * 0.9); opacity:0.45; padding:0.35em 0; }
+
+/* ---------- 天气组件 ---------- */
+.c-weather { font-size:var(--fsize); }
+.c-weather .w-main { display:flex; align-items:center; gap:0.4em; }
+.c-weather .w-ico { width:1.7em; height:1.7em; flex:none; color:currentColor; }
+.c-weather .w-ico svg { width:100%; height:100%; display:block; }
+.c-weather .w-temp { font-size:2.6em; font-weight:800; line-height:1; letter-spacing:-0.02em; }
+.c-weather .w-temp .u { font-size:0.5em; font-weight:600; vertical-align:top; margin-left:0.05em; }
+.c-weather .w-desc { font-size:0.95em; opacity:0.8; margin-top:0.25em; }
+.c-weather .w-fc { display:flex; gap:0.3em; margin-top:0.5em; }
+.c-weather .w-fc-i { flex:1; text-align:center; border-left:1px solid var(--line, rgba(0,0,0,.12)); padding:0 0.2em; }
+.c-weather .w-fc-i:first-child { border-left:none; }
+.c-weather .w-fc .wd { font-size:0.82em; opacity:0.7; }
+.c-weather .w-fc .wi { width:1.5em; height:1.5em; margin:0.15em auto; color:currentColor; }
+.c-weather .w-fc .wi svg { width:100%; height:100%; display:block; }
+.c-weather .w-fc .wt { font-size:0.85em; font-weight:700; }
+.c-weather .w-load { font-size:0.9em; opacity:0.6; padding:0.3em 0; }
+body.portrait .c-weather .w-temp { font-size:3.2em; }
+
+/* ---------- 时间·天气 合并组件（时间大号主体，日期+天气小字，居中） ----------
+   设计目标：900×360 空间内，时间占据主体视觉，日期与今日天气以更小字号
+   居中对齐，无年份。字号由 fitTimeWx() 按容器宽高收敛，自动适配任意尺寸。 */
+.c-twx { font-size:var(--fsize); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; height:100%; width:100%;
+  text-align:center; gap:0.14em; letter-spacing:0.01em; }
+.c-twx .twx-hero { display:flex; align-items:baseline; justify-content:center;
+  line-height:0.9; font-weight:800; letter-spacing:-0.01em;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.c-twx .twx-hm { font-size:1em; }
+.c-twx .twx-ss { font-size:0.4em; font-weight:700; margin-left:0.12em; opacity:0.82;
+  font-variant-numeric:tabular-nums; align-self:flex-start; }
+.c-twx .twx-datewrap { display:flex; align-items:baseline; justify-content:center;
+  gap:0.4em; margin-top:0.18em; white-space:nowrap; opacity:0.8;
+  letter-spacing:0.06em; font-weight:600; }
+.c-twx .twx-date { font-size:0.235em; }
+.c-twx .twx-week { font-size:0.235em; }
+.c-twx .twx-wx { display:flex; align-items:center; justify-content:center;
+  gap:0.55em; font-size:0.245em; opacity:0.92; margin-top:0.2em; flex-wrap:wrap;
+  line-height:1.2; }
+.c-twx .twx-wico { width:1.15em; height:1.15em; flex:none; color:currentColor; }
+.c-twx .twx-wico svg { width:100%; height:100%; display:block; }
+.c-twx .twx-wt { font-weight:800; font-variant-numeric:tabular-nums; }
+.c-twx .twx-wd { opacity:0.86; }
+.c-twx .twx-wh { opacity:0.6; }
+
+/* ---------- 课程表组件（只显示今天 / 明天） ---------- */
+.c-course { font-size:var(--fsize); }
+.c-course .cs-load { font-size:0.9em; opacity:0.6; padding:0.3em 0; }
+.c-course .cs-day { padding:0.3em 0; }
+.c-course .cs-dh { font-size:1.05em; font-weight:800; margin-bottom:0.25em;
+  border-bottom:1px solid var(--line, rgba(0,0,0,.14)); padding-bottom:0.2em; }
+.c-course .cs-row { display:flex; align-items:baseline; gap:0.35em;
+  padding:0.22em 0; font-size:var(--fsize); line-height:1.25; }
+.c-course .cs-t { font-weight:400; flex:none; min-width:3.4em; letter-spacing:0; opacity:0.85; }
+.c-course .cs-s { flex:1; min-width:0; word-break:break-all; }
+.c-course .cs-empty { font-size:calc(var(--fsize) * 0.9); opacity:0.45; padding:0.2em 0; }
+.c-course .cs-flag { font-weight:700; border-top:2px solid var(--line, rgba(0,0,0,.28));
+  margin-top:0.18em; padding-top:0.32em; }
+.c-course .cs-flag .cs-t { font-weight:700; opacity:1; min-width:3.4em; }
+
+/* ============ 组件：日程 ============ */
+/* 每行 = 上行(日期/星期 小字) + 下行(相对日/时间/内容 同字号大字)，两行间距小 */
+/* 两组字号系数（一处即可整体调节）：--sch-meta=日期·星期；--sch-main=相对日·时间·内容 */
+.c-sch { --sch-meta:0.62; --sch-main:1; }   /* 改这两个值即可分别调两组字号 */
+.c-sch .row {
+  display:flex; flex-direction:column; align-items:flex-start;
+  padding:0.42em 0; font-size:var(--fsize);
+}
+.c-sch .meta {                 /* 上行：日期 / 星期（次要元信息，小字） */
+  display:flex; align-items:center; gap:0.5em;
+  font-size:calc(var(--fsize) * var(--sch-meta)); line-height:1.1;
+  margin-bottom:0.1em;          /* 上下两行间距小 */
+}
+.c-sch .rel {                  /* 相对日：与「时间/内容」同字号，无灰底 */
+  font-weight:400; white-space:nowrap;
+  font-size:calc(var(--fsize) * var(--sch-main));
+}
+.c-sch .date { font-weight:700; white-space:nowrap; }
+.c-sch .wd   { font-weight:600; opacity:0.82; white-space:nowrap; }
+.c-sch .main {                 /* 下行：相对日 + 时间 + 内容，同字号 */
+  display:flex; align-items:baseline; gap:0.55em;
+  line-height:1.25; width:100%;
+}
+.c-sch .tm   { flex:none; font-weight:400; font-size:calc(var(--fsize) * var(--sch-main)); min-width:3.2em; letter-spacing:-0.02em; white-space:nowrap; }   /* 主字号：时间 */
+.c-sch .tx   { flex:1; min-width:0; font-size:calc(var(--fsize) * var(--sch-main)); word-break:break-all; text-align:left; }                              /* 主字号：内容 */
+.c-sch .empty { font-size:calc(var(--fsize) * 0.9); opacity:0.45; padding:0.35em 0; }
+/* 横屏半幅（如华为 MatePaper 横屏单列）：时间/内容字号加大，在窄列中更醒目易读 */
+body.landscape .c-sch { --fsize:calc(var(--us) * 2.85) !important; }
+
+/* ============ 组件：倒计时 ============ */
+.c-cd { display:flex; align-items:baseline; gap:0.4em; }
+.c-cd .n { font-size:var(--fsize); font-weight:800; line-height:1; }
+.c-cd .u { font-size:calc(var(--fsize) * 0.4); font-weight:600; }
+.c-cd .lb { font-size:calc(var(--fsize) * 0.38); opacity:0.7; margin-left:auto; text-align:right; }
+
+/* ============ 组件：自定义文字 ============ */
+.c-text { font-size:var(--fsize); line-height:1.4; word-break:break-all; white-space:pre-wrap; }
+
+/* ============ 底部状态行 ============ */
+#foot {
+  position:absolute; left:0; bottom:0; width:100%;
+  display:flex; align-items:center; gap:calc(var(--u) * 1.2);
+  padding:calc(var(--u) * 1.2) calc(var(--u) * 3);
+  font-size:calc(var(--u) * 1.15); opacity:0.5;
+}
+#foot .dot { width:calc(var(--u) * 0.9); height:calc(var(--u) * 0.9); border-radius:50%; background:currentColor; flex:none; }
+#foot .dot.off { background:none; border:calc(var(--u) * 0.25) solid currentColor; }
+#foot .sp { margin-left:auto; }
+
+/* ============ 全刷闪白层 ============ */
+#flash {
+  position:fixed; inset:0; background:#ffffff; z-index:99;
+  opacity:0; pointer-events:none;
+}
+body.invert #flash { background:#000000; }
+
+/* ============ 首次加载 ============ */
+#boot {
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:24px; font-weight:700; z-index:50; background:inherit;
+}
+</style>
+</head>
+<body data-page-node-id="LtnqDHSNrXl9hDIhlsX96B">
+<div id="boot" data-page-node-id="BltXxFXqd9VYr7F7nU9y16">载入中…</div>
+<div id="stage" data-page-node-id="2yXQLDcNOAtgWdWah6dGCE"><div id="board" data-page-node-id="QA3a2uQ0xkTJfACcwBoSqm"></div></div>
+<div id="foot" style="display:none" data-page-node-id="BiSQOqvR8J8XboyWFNeiIm">
+  <span class="dot" id="dot" data-page-node-id="aIzyppCMuFYyhNAIgDeidr"></span>
+  <span id="ftext" data-page-node-id="Pcs20BXMhoNag5gcAemunL">载入中</span>
+  <span class="sp" data-page-node-id="PERCCfT8YyxGQx9cghqUQM"></span>
+  <span id="ftime" data-page-node-id="BrtO5G1HOnYXcNQcp8vwab"></span>
+</div>
+<div id="flash" data-page-node-id="9UX9Mknss9B0yvUVE6GTzh"></div>
+
+<script>
+/* ==================================================================
+   InkBoard 显示端
+   组件化设计：新增组件只需在 COMPONENTS 里注册一个对象
+     { name, span, defaults:{字段默认值}, render(cfg, ctx)->HTML }
+   可选实现 tick(cfg, ctx) 做局部刷新（不整页重绘，对墨水屏友好）
+   ================================================================== */
+
+/* ---------- 通用工具 ---------- */
+var WEEK = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+function addDaysStr(n){
+  var d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+/* 距离今天几天：负数=已过期，0=今天 */
+function diffDays(dateStr){
+  if(!dateStr) return null;
+  var p = String(dateStr).split('-');
+  if(p.length < 3) return null;
+  var a = new Date(+p[0], (+p[1])-1, +p[2]);
+  var b = new Date(); b.setHours(0,0,0,0);
+  return Math.round((a - b) / 86400000);
+}
+
+function shortDate(dateStr){
+  if(!dateStr) return '';
+  var p = String(dateStr).split('-');
+  return p.length >= 3 ? (p[1] + '月' + p[2] + '日') : dateStr;
+}
+/* 日期 -> 星期（周X），用于家庭日程显示 */
+function weekdayOf(dateStr){
+  if(!dateStr) return '';
+  var p = String(dateStr).split('-');
+  if(p.length < 3) return '';
+  return WEEK[new Date(+p[0], (+p[1])-1, +p[2]).getDay()];
+}
+
+function hhmmFrom(iso){
+  if(!iso) return '';
+  var m = String(iso).match(/(\d{2}):(\d{2})/);
+  return m ? m[1] + ':' + m[2] : '';
+}
+
+/* 家庭作业在信息板上的「可见所属日」（教学日）：
+   - 每天 08:00 为换日点：08:00 前仍算前一个自然日（头天晚上/清晨还在赶前一天的作业），
+     08:00 后算今天 → 信息板只保留当天作业，其它日期仅在管理后台查看；
+   - 周末（周六/周日）没有课，回退到本周五；
+   - 于是周五作业会一路保留到周一 08:00（周一 08:00 前引用日=周日→回退周五），
+     周一 08:00 一到即切换为周一作业。 */
+function homeworkActiveDay(){
+  var d = new Date();
+  if(d.getHours() < 8) d.setDate(d.getDate() - 1);   // 08:00 前仍归前一自然日
+  var wd = d.getDay();                                // 0=周日 … 6=周六
+  if(wd === 0) d.setDate(d.getDate() - 2);            // 周日 → 周五
+  else if(wd === 6) d.setDate(d.getDate() - 1);       // 周六 → 周五
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+/* 信息板作业日期分组：返回 [{label, items:[h,...]}]，按显示顺序排列。
+   标题只有三种：今天 / 昨天 / 周末（有 due 的作业按归属日归组）：
+   - 周一 08:00 前：显示「周末」= 周五、周六、周日三天作业（周末作业周一早上翻篇）；
+   - 周一 08:00 后、周二~周四、周五 08:00 前（工作日）：08:00 前显示「昨天」作业，08:00 后显示「今天」作业；
+   - 周五 08:00 后、周六、周日：统一「周末」= 周五、周六、周日三天作业（周五 8:00 后到周一 8:00 前全天可见）。
+   无 due（无法推算周几）：按转发真实日期(createdAt 前10位)归入「转发日期 M月D日」组，一直显示到打勾。 */
+function homeworkDayGroups(all){
+  var now = new Date();
+  function iso(dd){ return dd.getFullYear() + '-' + pad(dd.getMonth()+1) + '-' + pad(dd.getDate()); }
+  function md(s){ var p = s.split('-'); return (+p[1]) + '月' + (+p[2]) + '日'; }
+  function shift(base, n){ var d = new Date(base); d.setDate(d.getDate() + n); return d; }
+  var sections = [];
+
+  var hour = now.getHours();
+  var nwd = now.getDay();                                 // 0=周日 1=周一 … 5=周五 6=周六
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  function pushGroup(label, dates){
+    var set = {};
+    dates.forEach(function(ds){ set[ds] = 1; });
+    var sub = all.filter(function(h){ return h.due && set[h.due]; });
+    if(sub.length) sections.push({ label: label, items: sub });
+  }
+
+  if(nwd === 6 || nwd === 0 || (nwd === 1 && hour < 8)){
+    /* 周末窗口（周六 / 周日 / 周一 08:00 前）：回推到本周末的周五，取 周五、六、日 三天 */
+    var back = nwd === 6 ? 1 : nwd === 0 ? 2 : 3;          // 周六-1、周日-2、周一-3 = 周五
+    var fri = shift(today, -back);
+    pushGroup('周末', [iso(fri), iso(shift(fri, 1)), iso(shift(fri, 2))]);
+  }else if(nwd === 5 && hour >= 8){
+    /* 周五 08:00 后进入周末：周五、六、日 三天 */
+    pushGroup('周末', [iso(today), iso(shift(today, 1)), iso(shift(today, 2))]);
+  }else{
+    /* 工作日（周一 08 后 / 周二 / 周三 / 周四 / 周五 08 前）：08 前看昨天，08 后看今天 */
+    if(hour < 8) pushGroup('昨天', [iso(shift(today, -1))]);
+    else         pushGroup('今天', [iso(today)]);
+  }
+
+  /* 无 due：按转发日期(createdAt)分组，追加在最后，始终显示直到打勾 */
+  var fmap = {}, forder = [];
+  all.forEach(function(h){
+    if(h.due) return;
+    var d = (h.createdAt || '').slice(0,10) || '未知';
+    if(!fmap[d]){ fmap[d] = []; forder.push(d); }
+    fmap[d].push(h);
+  });
+  forder.forEach(function(d){
+    sections.push({ label: '转发日期 ' + (d === '未知' ? '未知' : md(d)), items: fmap[d] });
+  });
+  return sections;
+}
+
+/* 解析课程表 Markdown：返回 { wmap:{周X(getDay序号)->列号}, data:[{time, subs:[周一..周五]}] }
+   要求首列=时间，后五列=周一~周五。其余内容（标题/空行/说明）忽略。 */
+function parseCourseTable(md){
+  if(!md) return null;
+  var WK = ['周日','周一','周二','周三','周四','周五','周六'];
+  var rows = [];
+  var lines = String(md).split(/\r?\n/);
+  for(var i = 0; i < lines.length; i++){
+    var ln = lines[i].trim();
+    if(ln.charAt(0) !== '|') continue;
+    var cells = ln.split('|');
+    if(cells[0].trim() === '') cells.shift();
+    if(cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+    for(var c = 0; c < cells.length; c++) cells[c] = cells[c].trim();
+    if(!cells.length) continue;
+    // 跳过分隔行 | --- | --- |
+    var sep = true;
+    for(var k = 0; k < cells.length; k++){
+      if(!/^:?-+:?$/.test(cells[k])){ sep = false; break; }
+    }
+    if(sep) continue;
+    rows.push(cells);
+  }
+  if(rows.length < 2) return null;
+  var header = rows[0];
+  var wmap = {};
+  for(var h = 1; h < header.length; h++){
+    var wi = WK.indexOf(header[h]);
+    if(wi >= 0) wmap[wi] = h;
+  }
+  if(!wmap[1] && !wmap[5]) return null; // 至少要能认出周一~周五范围
+  var data = [];
+  for(var r = 1; r < rows.length; r++){
+    var row = rows[r];
+    var time = row[0] || '';
+    var subs = [];
+    for(var d = 1; d <= 5; d++){          // subs[0]=周一 … subs[4]=周五
+      var col = wmap[d];
+      subs.push(col != null ? (row[col] || '') : '');
+    }
+    data.push({ time: time, subs: subs });
+  }
+  return { wmap: wmap, data: data };
+}
+
+/* 阿拉伯数字转中文（1–99），用于课程节次「第一节…」 */
+function cnNum(n){
+  var d = ['零','一','二','三','四','五','六','七','八','九'];
+  if(n <= 0) return '' + n;
+  if(n <= 10) return n === 10 ? '十' : d[n];
+  if(n < 20) return '十' + d[n - 10];
+  if(n < 100){ var t = Math.floor(n / 10), o = n % 10; return d[t] + '十' + (o ? d[o] : ''); }
+  return '' + n;
+}
+/* 从「第1节 8:30-9:10」提取并转中文节次「第一节」；无节次时按行序兜底 */
+function periodLabelOf(timeStr, idx){
+  var m = /第\s*(\d+)\s*节/.exec(timeStr || '');
+  var n = m ? parseInt(m[1], 10) : (idx + 1);
+  return '第' + cnNum(n) + '节';
+}
+
+/* ---------- SVG 图标（内联，不用 emoji） ---------- */
+var ICON = {
+  todo:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>',
+  done:  '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M7.5 12.5l3.2 3.2L16.8 9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square"/></svg>',
+  msg:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 5h18v12H8l-5 4V5z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>',
+  cal:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  text:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 6h14M5 12h14M5 18h9"/></svg>',
+  timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>',
+  weather:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 11.5 3.2 3.2 0 0 0 7 18z"/><circle cx="9.5" cy="8" r="2.4"/></svg>',
+  course:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 12 3l9 3.5-9 3.5L3 6.5z"/><path d="M5 9v6.5c0 1 3 2.5 7 2.5s7-1.5 7-2.5V9"/><path d="M19 9.8V16"/></svg>',
+  homework:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 4.5C10 3.5 7.5 3.2 4 4v14.5c3.5-.8 6-1.1 8-0.1 2-1 4.5-.7 8 0V4c-3.5-.8-6-1.1-8-0.1z"/><path d="M12 4.5V19M12 6.5c-2-1-4.5-.8-8 0M12 6.5c2-1 4.5-.8 8 0"/></svg>'
+};
+
+/* ---------- 天气图标（WMO 代码映射，内联 SVG） ---------- */
+function weatherIcon(id){
+  var P = {
+    sun:       '<circle cx="12" cy="12" r="4.2"/><g stroke-linecap="round"><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12H4.9M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M7 17.3 5 19"/></g>',
+    cloud:     '<path d="M7 18h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 11.5 3.2 3.2 0 0 0 7 18z"/>',
+    'sun-cloud': '<circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 1.6v2.2M3.3 3.3l1.5 1.5M13.7 3.3 12.2 4.8M1.6 8.5h2.2"/><path d="M9 18h6.5a3 3 0 0 0 .3-6A4.3 4.3 0 0 0 9.5 11 2.8 2.8 0 0 0 9 18z"/>',
+    fog:       '<path d="M7 15h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 8.5 3.2 3.2 0 0 0 7 15z"/><path d="M4.5 18.5h12M5.5 21h11" stroke-linecap="round"/>',
+    drizzle:   '<path d="M7 14h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 7.5 3.2 3.2 0 0 0 7 14z"/><path d="M9 17l-1 2.2M13 17l-1 2.2M17 17l-1 2.2" stroke-linecap="round"/>',
+    rain:      '<path d="M7 13h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 6.5 3.2 3.2 0 0 0 7 13z"/><path d="M9 16l-1.5 3M13 16l-1.5 3M17 16l-1.5 3" stroke-linecap="round"/>',
+    snow:      '<path d="M7 13h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 6.5 3.2 3.2 0 0 0 7 13z"/><path d="M9 17h.01M13 19.2h.01M17 17h.01M12.5 18h.01M16 19.2h.01M10 19.2h.01" stroke-linecap="round"/>',
+    thunder:   '<path d="M7 12h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 7 5.5 3.2 3.2 0 0 0 7 12z"/><path d="M12 14l-2.6 4h3l-2.4 4" stroke-linejoin="round" stroke-linecap="round"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">' + (P[id] || P['cloud']) + '</svg>';
+}
+
+/* ---------- 组件注册表 ---------- */
+var COMPONENTS = {
+
+  clock: {
+    name: '时间',
+    span: 6,
+    defaults: { showSeconds:false, hour12:false, size:11 },
+    render: function(cfg){
+      return '<div class="c-clock num" style="--fsize:calc(var(--us) * ' + (cfg.size || 11) + ')">' +
+               '<span class="hhmm" id="el-hm">--:--</span>' +
+               (cfg.showSeconds ? '<span class="ss" id="el-ss">:00</span>' : '') +
+               (cfg.hour12 ? '<span class="apm" id="el-apm">AM</span>' : '') +
+             '</div>';
+    },
+    tick: function(cfg){
+      var d = new Date();
+      var h = d.getHours(), apm = h < 12 ? 'AM' : 'PM';
+      var hd = cfg.hour12 ? (h % 12 === 0 ? 12 : h % 12) : h;
+      var hm = document.getElementById('el-hm');
+      if(hm) hm.textContent = pad(hd) + ':' + pad(d.getMinutes());
+      if(cfg.showSeconds){
+        var ss = document.getElementById('el-ss');
+        if(ss) ss.textContent = ':' + pad(d.getSeconds());
+      }
+      if(cfg.hour12){
+        var ap = document.getElementById('el-apm');
+        if(ap) ap.textContent = apm;
+      }
+      fitClock();
+    }
+  },
+
+  date: {
+    name: '日期',
+    span: 6,
+    defaults: { showWeek:true, note:'', size:4.2 },
+    render: function(cfg){
+      var d = new Date();
+      var line1 = d.getFullYear() + '年' + pad(d.getMonth()+1) + '月' + pad(d.getDate()) + '日';
+      var line2 = cfg.showWeek ? WEEK[d.getDay()] : '';
+      return '<div class="c-date num" style="--fsize:calc(var(--us) * ' + (cfg.size || 4.2) + ')">' +
+               '<div class="d1">' + line1 + '</div>' +
+               (line2 ? '<div class="d2">' + line2 + '</div>' : '') +
+               (cfg.note ? '<div class="d3">' + esc(cfg.note) + '</div>' : '') +
+             '</div>';
+    },
+    tick: function(){
+      /* 跨天时整页刷新即可，这里不做事 */
+    }
+  },
+
+  timewx: {
+    name: '时间·天气',
+    span: 6,
+    defaults: { showSeconds:false, showWeather:true, showHumidity:true, size:13, dateSize:0.235, weekSize:0.235, tempSize:0.245, descSize:0.24, humSize:0.2 },
+    render: function(cfg, ctx){
+      var d = new Date();
+      var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+      /* 主体：大号时间 */
+      var hero = '<div class="twx-hero">' +
+                   '<span class="twx-hm" id="twx-hm">' + hm + '</span>' +
+                   (cfg.showSeconds ? '<span class="twx-ss" id="twx-ss">:' + pad(d.getSeconds()) + '</span>' : '') +
+                 '</div>';
+      /* 日期：月日（独立可调），星期（独立可调），均无年份 */
+      var dateLine = '<span class="twx-date" style="font-size:' + (cfg.dateSize || 0.235) + 'em">' +
+                       ((d.getMonth() + 1) + '月' + d.getDate() + '日') + '</span>' +
+                     '<span class="twx-week" style="font-size:' + (cfg.weekSize || 0.235) + 'em">　' +
+                       WEEK[d.getDay()] + '</span>';
+      /* 天气：图标 + 温度（独立可调）+ 描述 +（湿度） */
+      var wxLine = '';
+      var w = ctx.weather;
+      if(cfg.showWeather && w && w.ok !== false){
+        wxLine = '<span class="twx-wico">' + weatherIcon(w.icon) + '</span>' +
+                 '<span class="twx-wt" style="font-size:' + (cfg.tempSize || 0.245) + 'em">' + Math.round(w.temp) + '°</span>' +
+                 '<span class="twx-wd" style="font-size:' + (cfg.descSize || 0.24) + 'em">' + esc(w.text) + '</span>' +
+                 (cfg.showHumidity && w.humidity != null ? '<span class="twx-wh" style="font-size:' + (cfg.humSize || 0.2) + 'em">湿度 ' + Math.round(w.humidity) + '%</span>' : '');
+      }else if(cfg.showWeather && w && w.ok === false){
+        wxLine = '<span class="twx-wd">' + (w.error ? esc(w.error) : '天气加载中…') + '</span>';
+      }
+      return '<div class="c-twx num" style="--fsize:calc(var(--us) * ' + (cfg.size || 13) + ')">' +
+               hero +
+               '<div class="twx-datewrap">' + dateLine + '</div>' +
+               (wxLine ? '<div class="twx-wx">' + wxLine + '</div>' : '') +
+             '</div>';
+    },
+    tick: function(cfg){
+      var d = new Date();
+      var hm = document.getElementById('twx-hm');
+      if(hm) hm.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+      if(cfg.showSeconds){
+        var ss = document.getElementById('twx-ss');
+        if(ss) ss.textContent = ':' + pad(d.getSeconds());
+      }
+      fitTimeWx();
+    }
+  },
+
+  todo: {
+    name: '待办',
+    span: 12,
+    defaults: { maxItems:5, showDone:false, title:'今天要处理' },
+    render: function(cfg, ctx){
+      var list = ctx.todos.slice();
+      /* 排序：未完成优先 → 逾期最前 → 有截止日的按日期 → 无期最后 → 已完成垫底 */
+      list.sort(function(a,b){
+        if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+        var da = diffDays(a.due), db = diffDays(b.due);
+        if(da === null && db === null) return 0;
+        if(da === null) return 1;
+        if(db === null) return -1;
+        return da - db;
+      });
+      if(!cfg.showDone) list = list.filter(function(t){ return !t.done; });
+      var max = parseInt(cfg.maxItems, 10) || 5;
+      var shown = list.slice(0, max);
+      var pending = list.filter(function(t){ return !t.done; }).length;
+
+      var html = '<div class="blk-hd">' + ICON.todo +
+                 '<span>' + esc(cfg.title || '待办') + '</span>' +
+                 '<span class="cnt">' + pending + ' 项' +
+                 (list.length > max ? '（共 ' + list.length + '）' : '') + '</span></div>';
+
+      if(shown.length === 0){
+        html += '<div class="empty">全部完成，休息一下</div>';
+        return html;
+      }
+
+      html += '<div class="c-todo" style="--fsize:calc(var(--us) * 2.5)">';
+      for(var i = 0; i < shown.length; i++){
+        var t = shown[i];
+        var dd = diffDays(t.due);
+        var cls = t.done ? 'done' : (dd !== null && dd < 0 ? 'overdue' : (dd === 0 ? 'today' : ''));
+        var badge = '';
+        if(!t.done && dd !== null){
+          if(dd < 0)      badge = '<span class="due">逾期' + (-dd) + '天</span>';
+          else if(dd === 0) badge = '<span class="due">今天</span>';
+          else if(dd <= 3)  badge = '<span class="due">' + (dd === 1 ? '明天' : dd + '天后') + '</span>';
+          else              badge = '<span class="due">' + shortDate(t.due) + '</span>';
+        }
+        html += '<div class="row ' + cls + '">' +
+                  '<span class="box">' + (t.done ? ICON.done : ICON.todo) + '</span>' +
+                  '<span class="tx">' + esc(t.text) + '</span>' +
+                  badge +
+                '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+  },
+
+  homework: {
+    name: '家庭作业',
+    span: 12,
+    defaults: { title:'家庭作业', size:2.6 },
+    render: function(cfg, ctx){
+      var all = ctx.homework || [];
+      var sections = homeworkDayGroups(all);   // [{label, items}]：今天/明天 或 周X M月D日 或 转发日期 M月D日
+
+      /* 内容字号：用户可调 size（相对基准字号的倍数）；竖屏在此基础上放大 15% 保证墨水屏可读 */
+      var base = parseFloat(cfg.size);
+      if(!(base > 0)) base = 2.6;
+      var fmul = (_isLandscape ? base : base * 1.15).toFixed(2);
+
+      var winItems = [];
+      sections.forEach(function(s){ winItems = winItems.concat(s.items); });
+      var pendingTotal = winItems.filter(function(h){ return !h.done; }).length;
+
+      var html = '<div class="blk-hd">' + ICON.homework +
+                 '<span>' + esc(cfg.title || '家庭作业') + '</span>' +
+                 '<span class="cnt">' + (pendingTotal > 0 ? (pendingTotal + ' 项待完成') : '作业已全部完成') + '</span></div>';
+
+      if(winItems.length === 0){
+        html += '<div class="empty">今天没有作业</div>';
+        return html;
+      }
+
+      /* 把一组作业按科目聚合并渲染：同一科目合并成一行「语文：□背古诗、□抄生字」，科目名只出现一次；
+         每条作业仍是独立可点复选框（data-hwid），打勾/取消只翻转该条。无科目单独成行。 */
+      function renderGroups(items){
+        var out = '';
+        var groups = [];                 // [{subj, teacher, items:[h,...]}]，按首次出现排序
+        var gindex = {};
+        for(var j = 0; j < items.length; j++){
+          var hh = items[j];
+          var sj = (hh.subject || '').trim();
+          if(!sj){
+            groups.push({ subj:'', teacher:(hh.teacher||''), items:[hh] });   // 无科目：独立行
+          }else{
+            if(!(sj in gindex)){ gindex[sj] = groups.length; groups.push({ subj:sj, teacher:'', items:[] }); }
+            var g = groups[gindex[sj]];
+            g.items.push(hh);
+            if(!g.teacher && hh.teacher) g.teacher = hh.teacher;
+          }
+        }
+        /* 组内：未完成在前、已完成沉底；整组：含待完成的组排最前，全部完成的组靠后 */
+        for(var gi2 = 0; gi2 < groups.length; gi2++){
+          groups[gi2].items.sort(function(a,b){ if(!!a.done !== !!b.done) return a.done ? 1 : -1; return 0; });
+        }
+        groups.sort(function(a,b){
+          var ap = a.items.some(function(x){ return !x.done; });
+          var bp = b.items.some(function(x){ return !x.done; });
+          if(ap !== bp) return ap ? -1 : 1;
+          return 0;
+        });
+        for(var gi = 0; gi < groups.length; gi++){
+          var grp = groups[gi];
+          if(!grp.subj){
+            var solo = grp.items[0];
+            out += '<div class="row' + (solo.done ? ' done' : '') + '" data-hwid="' + esc(solo.id) + '">' +
+                     '<span class="box" role="checkbox" aria-checked="' + (solo.done ? 'true' : 'false') + '" title="点按切换完成">' + (solo.done ? ICON.done : ICON.todo) + '</span>' +
+                     '<span class="tx">' + esc(solo.text) +
+                       (solo.teacher ? '<span class="th">·' + esc(solo.teacher) + '</span>' : '') +
+                     '</span>' +
+                   '</div>';
+          }else{
+            out += '<div class="hw-grp"><span class="hw-subj">' + esc(grp.subj) +
+                     (grp.teacher ? '<span class="th">·' + esc(grp.teacher) + '</span>' : '') +
+                   '：</span>';
+            for(var k = 0; k < grp.items.length; k++){
+              var it = grp.items[k];
+              if(k > 0) out += '<span class="hw-sep">、</span>';
+              out += '<span class="hw-it' + (it.done ? ' done' : '') + '" data-hwid="' + esc(it.id) + '" role="checkbox" aria-checked="' + (it.done ? 'true' : 'false') + '" title="点按切换完成">' +
+                       '<span class="box">' + (it.done ? ICON.done : ICON.todo) + '</span>' +
+                       '<span class="t">' + esc(it.text) + '</span>' +
+                     '</span>';
+            }
+            out += '</div>';
+          }
+        }
+        return out;
+      }
+
+      html += '<div class="c-homework" style="--fsize:calc(var(--us) * ' + fmul + ')">';
+      /* 统一按 sections 渲染：每组一个标题（今天/明天 · 周X M月D日 · 转发日期 M月D日）+ 科目分组 */
+      for(var si = 0; si < sections.length; si++){
+        var sec = sections[si];
+        html += '<div class="hw-day">' + esc(sec.label) + '</div>';
+        html += renderGroups(sec.items);
+      }
+      html += '</div>';
+      return html;
+    }
+  },
+
+  message: {
+    name: '留言',
+    span: 12,
+    defaults: { maxItems:3, title:'留言板' },
+    render: function(cfg, ctx){
+      var max = parseInt(cfg.maxItems, 10) || 3;
+      var shown = ctx.messages.slice(0, max);
+      var html = '<div class="blk-hd">' + ICON.msg +
+                 '<span>' + esc(cfg.title || '留言') + '</span>' +
+                 '<span class="cnt">' + ctx.messages.length + ' 条</span></div>';
+      if(shown.length === 0){
+        html += '<div class="empty">还没有留言</div>';
+        return html;
+      }
+      html += '<div class="c-msg" style="--fsize:calc(var(--us) * 2.3)">';
+      for(var i = 0; i < shown.length; i++){
+        var m = shown[i];
+        var meta = [];
+        if(m.author) meta.push(esc(m.author));
+        var d = hhmmFrom(m.createdAt);
+        if(d) meta.push(d);
+        html += '<div class="item">' +
+                  '<div class="tx">' + esc(m.text) + '</div>' +
+                  (meta.length ? '<div class="meta">— ' + meta.join(' · ') + '</div>' : '') +
+                '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+  },
+
+  schedule: {
+    name: '日程',
+    span: 12,
+    defaults: { title:'家庭日程', maxItems:4, withinDays:3, showTime:true },
+    render: function(cfg, ctx){
+      var days = parseInt(cfg.withinDays, 10) || 1;
+      var d0 = todayStr();
+      var dN = addDaysStr(days - 1);
+      var evs = (ctx.events || []).filter(function(e){
+        var dt = e.date || '';
+        return dt >= d0 && dt <= dN;          /* 'YYYY-MM-DD' 可直接字典序比较 */
+      });
+      evs.sort(function(a, b){
+        if(a.date !== b.date) return a.date < b.date ? -1 : 1;
+        var sa = a.start || '99:99', sb = b.start || '99:99';
+        return sa < sb ? -1 : (sa > sb ? 1 : 0);   /* 无时间＝全天，排最前 */
+      });
+      var max = parseInt(cfg.maxItems, 10) || 4;
+      var shown = evs.slice(0, max);
+
+      var html = '<div class="blk-hd">' + ICON.cal +
+                 '<span>' + esc(cfg.title || '日程') + '</span>' +
+                 '<span class="cnt">' + evs.length + ' 项</span></div>';
+      if(shown.length === 0){
+        var emptyTxt = (days === 1) ? '今天没有安排' : ('未来 ' + days + ' 天暂无安排');
+        html += '<div class="empty">' + emptyTxt + '</div>';
+        return html;
+      }
+      var schMain = (cfg.schMain !== undefined && cfg.schMain !== null && cfg.schMain !== '') ? cfg.schMain : 1;
+      var schMeta = (cfg.schMeta !== undefined && cfg.schMeta !== null && cfg.schMeta !== '') ? cfg.schMeta : 0.62;
+      html += '<div class="c-sch" style="--fsize:calc(var(--us) * 2.4); --sch-main:' + schMain + '; --sch-meta:' + schMeta + '">';
+      for(var i = 0; i < shown.length; i++){
+        var e = shown[i];
+        var dd = diffDays(e.date);
+        var p = String(e.date).split('-');
+        var md = (p.length >= 3) ? (p[1] + '-' + p[2]) : (e.date || '');   /* MM-DD */
+        var wd = weekdayOf(e.date);                                          /* 周X */
+        /* 相对日标签：今天/明天/后天/N天后（N>=3）；过去(理论上被过滤)显示 N天前 */
+        var rel, relCls = '';
+        if(dd === 0){ rel = '今天'; relCls = 'soon'; }
+        else if(dd === 1){ rel = '明天'; relCls = 'soon'; }
+        else if(dd === 2){ rel = '后天'; }
+        else if(dd > 2){ rel = dd + '天后'; }
+        else { rel = (dd < 0) ? (Math.abs(dd) + '天前') : ''; }
+        var relTag = rel ? '<span class="rel' + (relCls ? ' ' + relCls : '') + '">' + esc(rel) + '</span>' : '';
+        var dateTag = '<span class="date">' + esc(md) + '</span>';
+        var wdTag = '<span class="wd">' + esc(wd) + '</span>';
+        var tm = cfg.showTime === false ? '' :
+                 (e.start ? '<span class="tm">' + esc(e.start) + '</span>' : '<span class="tm">全天</span>');
+        html += '<div class="row">'
+              +   '<div class="meta">' + dateTag + wdTag + '</div>'
+              +   '<div class="main">' + relTag + tm + '<span class="tx">' + esc(e.title) + '</span></div>'
+              + '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+  },
+
+  /* ---- 以下为「可扩展」示范组件：注册即用，无需改其它代码 ---- */
+  countdown: {
+    name: '倒计时',
+    span: 6,
+    defaults: { label:'', target:'', size:7 },
+    render: function(cfg){
+      var dd = diffDays(cfg.target);
+      var n = (dd === null) ? '--' : Math.abs(dd);
+      var unit = (dd === null) ? '' : (dd >= 0 ? '天后' : '天前');
+      return '<div class="c-cd num" style="--fsize:calc(var(--us) * ' + (cfg.size || 7) + ')">' +
+               '<span class="n">' + n + '</span><span class="u">' + unit + '</span>' +
+               '<span class="lb">' + esc(cfg.label || cfg.target || '倒计时') + '</span>' +
+             '</div>';
+    }
+  },
+
+  text: {
+    name: '自定义文字',
+    span: 6,
+    defaults: { content:'在这里写一句话', size:2.4 },
+    render: function(cfg){
+      return '<div class="c-text num" style="--fsize:calc(var(--us) * ' + (cfg.size || 2.4) + ')">' +
+               esc(cfg.content || '') + '</div>';
+    }
+  },
+
+  weather: {
+    name: '天气',
+    span: 6,
+    defaults: {},
+    render: function(cfg, ctx){
+      var w = ctx.weather;
+      var head = '<div class="blk-hd">' + ICON.weather + '<span>天气</span>';
+      if(w && w.city){ head += '<span class="cnt">' + esc(w.city) + '</span>'; }
+      head += '</div>';
+      if(!w || w.ok === false){
+        return head + '<div class="c-weather"><div class="w-load">' +
+               (w && w.error ? esc(w.error) : '天气加载中…（请检查网络或城市设置）') + '</div></div>';
+      }
+      var main = '<div class="c-weather">' +
+        '<div class="w-main">' +
+          '<div class="w-ico">' + weatherIcon(w.icon) + '</div>' +
+          '<div class="w-temp">' + Math.round(w.temp) + '<span class="u">°</span></div>' +
+        '</div>' +
+        '<div class="w-desc">' + esc(w.text) +
+          (w.humidity != null ? '　湿度 ' + Math.round(w.humidity) + '%' : '') +
+          (w.wind != null ? '　风 ' + Math.round(w.wind) + 'km/h' : '') +
+        '</div>';
+      if(w.daily && w.daily.length){
+        main += '<div class="w-fc">';
+        for(var i = 0; i < 2 && i < w.daily.length; i++){
+          var d = w.daily[i];
+          var wd = diffDays(d.date);
+          var lbl = (i === 0) ? '今天' : (wd === 1 ? '明天' : (wd === 2 ? '后天' : shortDate(d.date)));
+          main += '<div class="w-fc-i">' +
+            '<div class="wd">' + lbl + '</div>' +
+            '<div class="wi">' + weatherIcon(d.icon) + '</div>' +
+            '<div class="wt">' + (d.min != null ? Math.round(d.min) : '–') + '°/' + (d.max != null ? Math.round(d.max) : '–') + '°</div>' +
+          '</div>';
+        }
+        main += '</div>';
+      }
+      main += '</div>';
+      return head + main;
+    }
+  },
+
+  course: {
+    name: '课程表',
+    span: 12,
+    defaults: {},
+    render: function(cfg, ctx){
+      var t = parseCourseTable(ctx.courses);
+      var head = '<div class="blk-hd">' + ICON.course + '<span>课程表</span></div>';
+      if(!t){
+        return head + '<div class="c-course" style="--fsize:calc(var(--us) * ' + (cfg.size || 1) + ')"><div class="cs-load">尚未上传课程表，请在管理端上传 Markdown 课程表</div></div>';
+      }
+      var now = new Date();
+      var hr = now.getHours();
+      var wd = now.getDay();
+      /* 选天规则：
+         - 08:00 前显示今天；
+         - 08:00 后显示下一个上课日：周一~周四→明天；周五/周六→周一（周末）；
+         - 周日全天直接显示周一课程，标题「周一」。 */
+      var dayIdx, label;
+      if(wd === 0){
+        dayIdx = 1; label = '周一';                    // 周日全天 → 周一
+      }else if(hr < 8){
+        dayIdx = wd; label = '今天';
+      }else{
+        var next = (wd + 1) % 7;
+        if(next === 6 || next === 0){ next = 1; label = '周一'; }
+        else { label = '明天'; }
+        dayIdx = next;
+      }
+
+      /* 单双周：以「显示的那天」所在教学周推算。
+         基准：2026-08-31（周一）所在周为单周；每隔 7 天单/双交替。
+         换学期时把 ANCHOR_MONDAY 改成新学期第一个「单周」的周一即可。 */
+      var ANCHOR_MONDAY = new Date(2026, 7, 31);      // 2026-08-31 周一 = 单周
+      var shown = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if(wd === 0){
+        shown.setDate(shown.getDate() + 1);           // 周日 → 次日周一
+      }else if(hr >= 8){
+        var nxw = (wd + 1) % 7;
+        if(nxw === 6 || nxw === 0){ shown.setDate(shown.getDate() + ((1 - wd + 7) % 7)); } // 周五/六 → 下周一
+        else { shown.setDate(shown.getDate() + 1); }  // 工作日 → 明天
+      }
+      var shownMonday = new Date(shown);
+      shownMonday.setDate(shownMonday.getDate() - ((shownMonday.getDay() + 6) % 7));  // 回退到该周周一
+      var weekDiff = Math.round((shownMonday - ANCHOR_MONDAY) / (7 * 24 * 3600 * 1000));
+      var weekTag = (weekDiff % 2 === 0) ? '单周' : '双周';
+      label = label + ' · ' + weekTag;
+
+      function dayBlock(dayI, lbl, flag){
+        var col = t.wmap[dayI];
+        if(col == null){
+          return '<div class="cs-day"><div class="cs-dh">' + esc(lbl) + '</div>' +
+                 '<div class="cs-empty">周末无课</div></div>';
+        }
+        var rows = '';
+        /* 双周周一：在第一节上方加升旗提示行 */
+        if(flag){
+          rows += '<div class="cs-row cs-flag"><span class="cs-t">' + esc(flag.t) + '</span>' +
+                  '<span class="cs-s">' + esc(flag.s) + '</span></div>';
+        }
+        for(var i = 0; i < t.data.length; i++){
+          var drow = t.data[i];
+          var subj = drow.subs[dayI - 1] || '';   // subs[0]=周一
+          var periodLabel = periodLabelOf(drow.time, i);
+          /* 节次（第一节…）恒显；时间段（8:30-9:10）仅 showTime 为真时附加 */
+          var tText = cfg.showTime
+            ? (drow.time ? (periodLabel + ' ' + drow.time.replace(/第\s*\d+\s*节\s*/, '').trim()) : periodLabel)
+            : periodLabel;
+          var tCell = '<span class="cs-t">' + esc(tText) + '</span>';
+          rows += '<div class="cs-row">' + tCell +
+                  '<span class="cs-s">' + (subj ? esc(subj) : '—') + '</span></div>';
+        }
+        return '<div class="cs-day"><div class="cs-dh">' + esc(lbl) + '</div>' + rows + '</div>';
+      }
+      /* 单周且显示周一课程 → 第一节上方插入升旗行；双周则不插入 */
+      var mondayFlag = (dayIdx === 1 && weekTag === '单周') ? { t: '7:45', s: '升旗' } : null;
+      var body = '<div class="c-course" style="--fsize:calc(var(--us) * ' + (cfg.size || 1) + ')">' +
+        dayBlock(dayIdx, label, mondayFlag) +
+        '</div>';
+      return head + body;
+    }
+  }
+};
+
+/* ---------- 运行时状态 ---------- */
+var state = null;
+var renderedSig = '';
+var lastLoadOk = true;
+var bootAt = Date.now();
+var lastFullRefresh = Date.now();
+
+/* ---------- 取数 ---------- */
+function fetchState(cb){
+  var rt = '';
+  var m = document.querySelector('meta[name="readonly-token"]');
+  if(m) rt = m.getAttribute('content') || '';
+  var url = '/api/state?t=' + Date.now();
+  if(rt) url += '&rt=' + encodeURIComponent(rt);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.timeout = 8000;
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState !== 4) return;
+    if(xhr.status === 200){
+      try{
+        var r = JSON.parse(xhr.responseText);
+        if(r && r.ok && r.state){ lastLoadOk = true; cb(r.state, null); return; }
+      }catch(e){}
+      lastLoadOk = false; cb(null, '数据格式错误');
+    }else{
+      lastLoadOk = false; cb(null, 'HTTP ' + xhr.status);
+    }
+  };
+  xhr.onerror = function(){ lastLoadOk = false; cb(null, '网络不通'); };
+  xhr.ontimeout = function(){ lastLoadOk = false; cb(null, '请求超时'); };
+  xhr.send();
+}
+
+function apiPost(op, payload, cb){
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/update', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.timeout = 8000;
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState !== 4) return;
+    if(xhr.status === 200){
+      try{ var r = JSON.parse(xhr.responseText); cb(r, null); }
+      catch(e){ cb(null, '数据格式错误'); }
+    }else cb(null, 'HTTP ' + xhr.status);
+  };
+  xhr.onerror = function(){ cb(null, '网络不通'); };
+  xhr.send(JSON.stringify({ op: op, payload: payload || {} }));
+}
+
+/* 显示端交互：点家庭作业任意一行（复选框）→ 切换完成状态并回写服务端。
+   事件委托挂在持久的 #board 上，renderBoard 重建 innerHTML 也不影响；
+   打勾后该行删除线变灰，再点恢复。 */
+function bindBoardClicks(){
+  var board = document.getElementById('board');
+  if(!board || board._hwBound) return;
+  board._hwBound = true;
+  board.addEventListener('click', function(e){
+    var el = e.target;
+    while(el && el !== board && !el.getAttribute('data-hwid')) el = el.parentNode;
+    if(!el || el === board) return;
+    var id = el.getAttribute('data-hwid');
+    if(!id) return;
+    apiPost('homework.toggle', { id: id }, function(r, err){
+      if(err || !r || !r.state) return;
+      state = r.state;
+      renderedSig = JSON.stringify(state);
+      renderBoard();
+    });
+  });
+}
+
+/* 自由布局基准分辨率（华为 MatePad Paper 原生像素），与 server.py BOARD_GEO 一致 */
+var GEO_BOARD = { land:{w:1872, h:1404}, port:{w:1404, h:1872} };
+
+/* ---------- 尺寸适配 ---------- */
+function layout(){
+  var st = state ? state.settings : {};
+  var stage = document.getElementById('stage');
+  var board = document.getElementById('board');
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var freeMode = (st.layoutMode === 'free');
+  var bw, bh, u;
+
+  /* 方向检测：横屏（宽>高）走多列，竖屏走单列为主 */
+  _isLandscape = (vw >= vh);
+
+  if(freeMode){
+    /* 自由布局：board 是一块固定基准坐标平面，整体等比缩放居中，组件按 geo 绝对定位 */
+    var gb = _isLandscape ? GEO_BOARD.land : GEO_BOARD.port;
+    bw = gb.w; bh = gb.h;
+  }else if(st.fitMode === 'fixed' && st.boardW && st.boardH){
+    bw = st.boardW; bh = st.boardH;
+  }else{
+    bw = vw; bh = vh;
+  }
+
+  var s = Math.min(vw / bw, vh / bh);
+  stage.style.width = bw + 'px';
+  stage.style.height = bh + 'px';
+  stage.style.transform = 'scale(' + s + ') translate(' +
+    ((vw - bw * s) / 2 / s) + 'px,' + ((vh - bh * s) / 2 / s) + 'px)';
+
+  if(freeMode || (st.fitMode === 'fixed' && st.boardW && st.boardH)){
+    u = bw / 100;
+  }else{
+    u = Math.min(vw, vh * 1.7) / 100;
+  }
+
+  document.body.className = (st.invert ? 'invert' : '') + (_isLandscape ? ' landscape' : ' portrait');
+
+  board.style.setProperty('--u', u + 'px');
+  board.style.setProperty('--fg', document.body.className.indexOf('invert') >= 0 ? '#ffffff' : '#000000');
+  board.style.setProperty('--bg', document.body.className.indexOf('invert') >= 0 ? '#000000' : '#ffffff');
+
+  /* 自由模式：board 即基准平面，显式宽高；自动模式：交回 CSS（min-height:100% 流式） */
+  board.className = freeMode ? 'free' : '';
+  if(freeMode){
+    board.style.width = bw + 'px';
+    board.style.height = bh + 'px';
+  }else{
+    board.style.width = '';
+    board.style.height = '';
+  }
+
+  renderBoard();  /* 方向/模式变了：自由定位或瀑布流都要重排 */
+  fitClock();
+}
+
+/* ============ 自动排版引擎（横向双列瀑布流） ============
+   每个区块按「整行 / 半幅」放置；半幅区块进入双列段，渲染后按实测高度
+   在左右两列间平衡（矮块自动填到高块旁的空位，不被同行最高组件卡住）。
+   竖屏单列纵向自然流动、不裁切。方向/增删组件一变即重排。 */
+var _isLandscape = true;
+
+/* 返回单个组件应占的「列数」：12=整行（单列满宽），6=半幅（两列瀑布流中的一列）。
+   竖屏统一整行（单列纵向流）；横屏下整幅列表类按现有逻辑收敛为半幅。 */
+function componentCols(it, def, isLandscape){
+  if(!isLandscape) return 12;
+  var s = it.span;
+  if(s === 'full') return 12;
+  if(s === 'half') return 6;
+  if(s === 'third') return 6;      // 两列瀑布流里没有三栏位置，三分之一按半幅处理
+  if(def.span === 12) return 6;    // 横屏：整幅列表类默认与另一组件并排（不再独占整行）
+  return 6;
+}
+
+/* 窄栏区块自动小幅收敛字号，避免挤在一起；整行区块保持基准字号 */
+function usForSpan(span){
+  var s = span >= 12 ? 1 : (span >= 6 ? 0.92 : 0.84);
+  return 'calc(var(--u) * ' + s + ')';
+}
+
+/* 双列瀑布流：横屏下把「整行段」与「双列段」分段渲染。
+   双列段内半幅组件先全部按配置顺序放入左列，渲染后由 rebalanceBands 按实测高度
+   贪心分配（每块放入当前更矮的一列）——矮组件自动填到高组件旁边的空位，不被同行
+   最高者卡住；贪心一次性放置、不回搬，天然收敛无振荡。
+   调用链单向：renderBoard → rebalanceBands（只移动 DOM 位置，不改数据、不触发渲染）。 */
+function buildComponentNodes(){
+  var items = (state && state.layout) ? state.layout : [];
+  var nodes = [];
+  for(var i = 0; i < items.length; i++){
+    var it = items[i];
+    if(!it.enabled) continue;
+    var def = COMPONENTS[it.id];
+    if(!def) continue;
+    var cfg = {};
+    for(var k in def.defaults){ cfg[k] = def.defaults[k]; }
+    if(it.config){ for(var k2 in it.config){ if(it.config[k2] !== undefined) cfg[k2] = it.config[k2]; } }
+    var inner;
+    try{ inner = def.render(cfg, ctxOf()); }
+    catch(e){ inner = '<div class="c-text">组件渲染出错</div>'; }
+    var cols = componentCols(it, def, _isLandscape);
+    /* 自由布局：取当前方向的几何；无几何的组件不进入自由平面（回退时也不会丢） */
+    var orient = _isLandscape ? 'land' : 'port';
+    var geo = (it.geo && it.geo[orient]) ? it.geo[orient] : null;
+    nodes.push({ id:it.id, uid:it.uid || ('c'+i), cols:cols, inner:inner,
+                 us:usForSpan(cols), geo:geo, hasGeo: !!(it.geo && it.geo[orient]) });
+  }
+  return nodes;
+}
+
+/* 自由布局渲染：组件按 geo 绝对定位到基准平面，内容区超高可在组件内滚动。
+   有几何的组件上自由平面；没有几何的组件本方向不显示（在另一方向或自动模式下仍可见）。 */
+function renderBoardFree(board, nodes){
+  var gb = _isLandscape ? GEO_BOARD.land : GEO_BOARD.port;
+  var u = gb.w / 100;                 /* 基准平面下的字号单位 */
+  var html = '';
+  for(var n = 0; n < nodes.length; n++){
+    var nd = nodes[n];
+    if(!nd.hasGeo) continue;
+    var g = nd.geo;
+    /* 组件内字号随其宽度自适应：宽度越宽字号越大，与瀑布流窄栏收敛逻辑近似 */
+    var us = Math.max(0.7, Math.min(1.2, g.w / gb.w * 2)) ;
+    html += '<section class="blk freeblk" data-cid="' + nd.id + '" data-uid="' + nd.uid +
+            '" style="--us:calc(var(--u) * ' + us.toFixed(3) + ');left:' + g.x + 'px;top:' + g.y +
+            'px;width:' + g.w + 'px;height:' + g.h + 'px;">' + nd.inner + '</section>';
+  }
+  board.innerHTML = html;
+  tickAll();
+}
+
+function renderBoard(){
+  var board = document.getElementById('board');
+  var nodes = buildComponentNodes();
+  var st = (state && state.settings) ? state.settings : {};
+  var foot = document.getElementById('foot');
+
+  if(st.layoutMode === 'free'){
+    renderBoardFree(board, nodes);
+    foot.style.display = (st.showFooter === false) ? 'none' : 'flex';
+    renderFoot();
+    return;
+  }
+
+  var html = '';
+  var band = null;
+  function flushBand(){
+    if(!band || band.length === 0) return;
+    /* 初始全部半幅块放进左列，右列留空；渲染后由 rebalanceBands 贪心重分到两列 */
+    html += '<div class="band"><div class="mcol">';
+    for(var i = 0; i < band.length; i++){ html += band[i].html; }
+    html += '</div><div class="mcol"></div></div>';
+    band = null;
+  }
+  for(var n = 0; n < nodes.length; n++){
+    var nd = nodes[n];
+    nd.html = '<section class="blk" data-cid="' + nd.id + '" style="--us:' + nd.us + '">' + nd.inner + '</section>';
+    if(nd.cols >= 12){
+      flushBand();
+      html += nd.html;
+    }else{
+      if(!band) band = [];
+      band.push(nd);   /* 初始全部进左列，交给 rebalanceBands 贪心分配 */
+    }
+  }
+  flushBand();
+  board.innerHTML = html;
+  tickAll();
+  rebalanceBands(board);
+
+  foot.style.display = (st.showFooter === false) ? 'none' : 'flex';
+  renderFoot();
+}
+
+/* 按实测高度平衡每个双列段：贪心最短列放置。
+   初始所有半幅块都在左列（保持配置顺序）；按自上而下的顺序逐块取出，
+   放入「当前累计高度更矮」的一列。每块只放一次、绝不回搬，因此必然终止、无振荡。
+   效果：矮组件会自动填到高组件旁边的空位（正上方有空位即可上移），
+   两列最终高度差不超过「最高的单个块」的高度。 */
+function rebalanceBands(board){
+  if(!_isLandscape) return;
+  var bands = board.querySelectorAll('.band');
+  for(var b = 0; b < bands.length; b++){
+    var cols = bands[b].querySelectorAll('.mcol');
+    if(cols.length !== 2) continue;
+    var L = cols[0], R = cols[1];
+    /* 收集左列全部块（配置顺序），右列初始为空 */
+    var blocks = [];
+    while(L.firstElementChild){ blocks.push(L.firstElementChild); L.removeChild(L.firstElementChild); }
+    var hL = 0, hR = 0;
+    for(var i = 0; i < blocks.length; i++){
+      var blk = blocks[i];
+      /* 挂到候选列后读真实高度（半幅块宽度固定，高度不随所在列变化） */
+      var target = (hL <= hR) ? L : R;
+      target.appendChild(blk);
+      if(target === L) hL += blk.offsetHeight; else hR += blk.offsetHeight;
+    }
+    /* 后处理：单块迁移优化。贪心是在线算法，可能错过更优分配；
+       逐块尝试从高列迁到矮列，只接受能减小高度差的迁移，每块至多迁一次、无振荡。 */
+    for(var pass = 0; pass < blocks.length; pass++){
+      hL = L.offsetHeight; hR = R.offsetHeight;
+      var diff = Math.abs(hL - hR);
+      if(diff < Math.round(24)) break;
+      var hiCol = hL > hR ? L : R, loCol = hL > hR ? R : L;
+      var best = null, bestDiff = diff;
+      for(var k = 0; k < hiCol.children.length; k++){
+        var ch = hiCol.children[k].offsetHeight;
+        var nd = Math.abs(diff - 2 * ch);   /* 迁移后新高度差 */
+        if(nd < bestDiff){ bestDiff = nd; best = hiCol.children[k]; }
+      }
+      if(!best) break;
+      loCol.appendChild(best);
+    }
+  }
+}
+
+/* 时钟自适应：容器放不下时按比例缩小，避免溢出与相邻组件重叠。
+   竖屏时钟独占整行时，字号放大到更协调的比例（约为容器 70% 宽）。
+   单向调用：只读 DOM 尺寸 → 改字体，不触发其它渲染。
+   仅在字号配置 / 布局单位 / 容器宽度变化时才重新测量，逐秒 tick 不做无谓重排。 */
+var _fitClockKey = '';                /* 上次生效的输入指纹（size|u|avail|dir） */
+var _fitClockApplied = false;         /* 是否已按当前指纹应用过缩放 */
+var _fitTimeWxKey = '';               /* 时间·天气组件：上次生效的输入指纹 */
+var _fitTimeWxApplied = false;        /* 是否已按当前指纹应用过缩放 */
+function fitClock(){
+  var el = document.getElementById('el-hm');
+  if(!el || !state || !state.layout) return;
+  var st = state.settings || {};
+  if(st.fitMode === 'fixed') return;  /* 固定分辨率预览下不做缩放，按预览比例走 */
+  var boardEl = document.getElementById('board');
+  var clock = el.closest ? el.closest('.blk') : null;
+  if(!clock || !boardEl) return;
+
+  var u = parseFloat(getComputedStyle(boardEl).getPropertyValue('--u')) || 14;
+  var item = null;
+  for(var i = 0; i < state.layout.length; i++){
+    if(state.layout[i].id === 'clock'){ item = state.layout[i]; break; }
+  }
+  if(!item || !item.enabled) return;
+  var cfg = {};
+  var def = COMPONENTS.clock;
+  for(var k in def.defaults){ cfg[k] = def.defaults[k]; }
+  if(item.config){ for(var k2 in item.config){ if(item.config[k2] !== undefined) cfg[k2] = item.config[k2]; } }
+  var want = cfg.size || def.defaults.size;
+  var avail = clock.clientWidth;
+  if(avail <= 0) return;
+
+  var isPortrait = document.body.className.indexOf('portrait') >= 0;
+  /* 竖屏独占整行 → 放大 1.5 倍；横屏半幅 → 保持配置字号 */
+  if(isPortrait) want = want * 1.5;
+
+  var key = u.toFixed(2) + '|' + avail + '|' + want + '|' + (isPortrait ? 'p' : 'l');
+  if(key !== _fitClockKey){
+    _fitClockKey = key;
+    _fitClockApplied = false;
+  }
+  if(_fitClockApplied) return;        /* 输入未变，已应用过，跳过 */
+
+  /* 先回到目标字号再测量，得到该字号下的真实文字宽度，按比例一次算出最终字号 */
+  el.parentNode.style.setProperty('--fsize', 'calc(var(--us) * ' + want + ')');
+  var contentW = el.scrollWidth;
+  /* 竖屏目标占容器 70% 宽，横屏最多占 92%（只缩不放） */
+  var cap = avail * (isPortrait ? 0.7 : 0.92);
+  var scale = Math.min(1, cap / Math.max(contentW, 1));
+  var fit = Math.max(0.5, Math.min(want, want * scale));
+  el.parentNode.style.setProperty('--fsize', 'calc(var(--us) * ' + fit.toFixed(2) + ')');
+  _fitClockApplied = true;
+}
+
+/* 时间·天气组件：把大号时间收敛到容器内（同时受宽、高约束，避免 900×360 等固定
+   空间内文字溢出）。逻辑与 fitClock 同级、单向（只改样式、不触发渲染）。 */
+function fitTimeWx(){
+  var el = document.getElementById('twx-hm');
+  if(!el || !state || !state.layout) return;
+  var st = state.settings || {};
+  if(st.fitMode === 'fixed') return;  /* 固定分辨率预览下不做缩放，按预览比例走 */
+  var box = el.closest ? el.closest('.c-twx') : null;
+  if(!box) return;
+  var boardEl = document.getElementById('board');
+  if(!boardEl) return;
+  var u = parseFloat(getComputedStyle(boardEl).getPropertyValue('--u')) || 14;
+  var availW = box.clientWidth;
+  var availH = box.clientHeight;
+  if(availW <= 0 || availH <= 0) return;
+
+  var item = null;
+  for(var i = 0; i < state.layout.length; i++){
+    if(state.layout[i].id === 'timewx'){ item = state.layout[i]; break; }
+  }
+  if(!item || !item.enabled) return;
+  var def = COMPONENTS.timewx;
+  var cfg = {};
+  for(var k in def.defaults){ cfg[k] = def.defaults[k]; }
+  if(item.config){ for(var k2 in item.config){ if(item.config[k2] !== undefined) cfg[k2] = item.config[k2]; } }
+  var want = cfg.size || def.defaults.size;
+  var isPortrait = document.body.className.indexOf('portrait') >= 0;
+  if(isPortrait) want = want * 1.5;   /* 竖屏独占整行，给更大目标字号 */
+
+  var key = u.toFixed(2) + '|' + availW + '|' + availH + '|' + want + '|' + (isPortrait ? 'p' : 'l') + '|' + (cfg.showSeconds ? 's' : '') + '|' + (cfg.dateSize || '') + '|' + (cfg.weekSize || '') + '|' + (cfg.tempSize || '') + '|' + (cfg.descSize || '') + '|' + (cfg.humSize || '');
+  if(key !== _fitTimeWxKey){
+    _fitTimeWxKey = key;
+    _fitTimeWxApplied = false;
+  }
+  if(_fitTimeWxApplied) return;        /* 输入未变，已应用过，跳过 */
+
+  /* 先回到目标字号再测量，得到该字号下的真实内容宽高，按宽、高同时取最小缩放比 */
+  box.style.setProperty('--fsize', 'calc(var(--us) * ' + want + ')');
+  var contentW = el.scrollWidth;
+  var contentH = box.scrollHeight;
+  var capW = availW * (isPortrait ? 0.7 : 0.94);   /* 横屏最多占 94% 宽，竖屏 70% */
+  var capH = availH * 0.96;                          /* 高度留 4% 边距，居中不贴边 */
+  var scale = Math.min(1, capW / Math.max(contentW, 1), capH / Math.max(contentH, 1));
+  var fit = Math.max(0.5, Math.min(want, want * scale));
+  box.style.setProperty('--fsize', 'calc(var(--us) * ' + fit.toFixed(2) + ')');
+  _fitTimeWxApplied = true;
+}
+
+/* 传给组件的数据上下文（集中一处，新增数据源只改这里） */
+function ctxOf(){
+  return {
+    todos: (state && state.todos) || [],
+    homework: (state && state.homework) || [],
+    messages: (state && state.messages) || [],
+    events: (state && state.events) || [],
+    settings: (state && state.settings) || {},
+    weather: (state && state.weather) || null,
+    courses: (state && state.courses) || ''
+  };
+}
+
+/* ---------- 渲染（单向：renderBoard → tickAll，tick 绝不回调 render） ----------
+   实际渲染函数定义在上方「自动排版引擎」段（双列瀑布流版 renderBoard）。 */
+
+function tickAll(){
+  if(!state) return;
+  var items = state.layout || [];
+  for(var i = 0; i < items.length; i++){
+    var it = items[i];
+    if(!it.enabled) continue;
+    var def = COMPONENTS[it.id];
+    if(!def || !def.tick) continue;
+    var cfg = {};
+    for(var k in def.defaults){ cfg[k] = def.defaults[k]; }
+    if(it.config){ for(var k2 in it.config){ if(it.config[k2] !== undefined) cfg[k2] = it.config[k2]; } }
+    try{ def.tick(cfg, ctxOf()); }catch(e){}
+  }
+}
+
+function renderFoot(){
+  var t = document.getElementById('ftime');
+  var f = document.getElementById('ftext');
+  var dot = document.getElementById('dot');
+  if(!t) return;
+  var d = new Date();
+  t.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if(lastLoadOk){
+    dot.className = 'dot';
+    f.textContent = '数据更新 ' + (state && state.updatedAt ? hhmmFrom(state.updatedAt) : '--:--');
+  }else{
+    dot.className = 'dot off';
+    f.textContent = '离线 · 显示上次内容';
+  }
+}
+
+/* ---------- 增量检查：数据变了才重绘（避免墨水屏无谓刷新） ---------- */
+function pollState(){
+  fetchState(function(s, err){
+    if(!s) { renderFoot(); return; }
+    var sig = JSON.stringify(s);
+    if(sig !== renderedSig){
+      state = s;
+      renderedSig = sig;
+      applyTheme();
+      layout();
+      renderBoard();
+    }else{
+      renderFoot();
+    }
+  });
+}
+
+/* ---------- 整页全刷（墨水屏清残影） ---------- */
+function doFullRefresh(){
+  var st = (state && state.settings) ? state.settings : {};
+  lastFullRefresh = Date.now();
+  if(st.fullFlash === false){
+    location.reload();
+    return;
+  }
+  var fl = document.getElementById('flash');
+  fl.style.opacity = '1';
+  setTimeout(function(){ location.reload(); }, 420);
+}
+
+/* ---------- 主题 ---------- */
+function applyTheme(){
+  var st = (state && state.settings) ? state.settings : {};
+  /* 保留方向类与夜间类，只切换 invert 类 */
+  document.body.className = (st.invert ? 'invert' : '') +
+    (document.body.className.indexOf('landscape') >= 0 ? ' landscape' :
+     (document.body.className.indexOf('portrait') >= 0 ? ' portrait' : '')) +
+    (_nightOn ? ' night' : '');
+  document.body.setAttribute('data-nightmode', _nightOn ? _nightMode : '');
+  var meta = document.querySelector('meta[name=theme-color]');
+  if(meta) meta.setAttribute('content', st.invert ? '#000000' : '#ffffff');
+}
+
+/* ---------- 夜间自动息屏：按设定时段把页面切全黑/暗时钟，并释放 wakeLock ---------- */
+function inNightWindow(start, end){
+  function m(t){ var p = (t || '0:0').split(':'); return (+p[0]) * 60 + (+p[1]); }
+  var now = new Date();
+  var cur = now.getHours() * 60 + now.getMinutes();
+  var s = m(start), e = m(end);
+  if(s === e) return false;
+  if(s < e) return cur >= s && cur < e;            // 同日区间
+  return cur >= s || cur < e;                       // 跨午夜区间（如 23:00-07:00）
+}
+function setNight(on, mode){
+  var st = (state && state.settings) ? state.settings : {};
+  var cls = (st.invert ? 'invert' : '')
+          + ((document.body.className.indexOf('landscape') >= 0) ? ' landscape'
+             : (document.body.className.indexOf('portrait') >= 0) ? ' portrait' : '')
+          + (on ? ' night' : '');
+  if(_nightOn === on && _nightMode === mode && document.body.className === cls) return;
+  _nightOn = on; _nightMode = mode;
+  document.body.className = cls;
+  document.body.setAttribute('data-nightmode', on ? mode : '');
+  if(on) releaseWakeLock(); else keepAwake();
+}
+function checkNight(){
+  var st = (state && state.settings) ? state.settings : {};
+  if(!st.nightEnabled){ setNight(false, st.nightMode || 'black'); return; }
+  setNight(inNightWindow(st.nightStart, st.nightEnd), st.nightMode || 'black');
+}
+
+/* ---------- 保持屏幕常亮（支持的浏览器才生效） ---------- */
+var wakeLock = null;
+var _nightOn = false;       // 当前是否处于夜间时段
+var _nightMode = 'black';
+function releaseWakeLock(){
+  if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
+}
+function keepAwake(){
+  if(_nightOn) return;       // 夜间不持有 wakeLock，允许系统按休眠时间息屏
+  try{
+    if(navigator.wakeLock && navigator.wakeLock.request){
+      navigator.wakeLock.request('screen').then(function(l){ wakeLock = l; }).catch(function(){});
+    }
+  }catch(e){}
+  document.addEventListener('visibilitychange', function(){
+    if(_nightOn) return;     // 夜间即便重新可见也不抢回 wakeLock
+    if(wakeLock !== null && document.visibilityState === 'visible'){
+      try{ navigator.wakeLock.request('screen').then(function(l){ wakeLock = l; }).catch(function(){}); }catch(e){}
+    }
+  });
+}
+
+/* ---------- 主循环 ---------- */
+function loop(){
+  tickAll();
+  renderFoot();
+  checkNight();                       // 检查是否进入/离开夜间时段（无变化不动 DOM）
+  var st = (state && state.settings) ? state.settings : {};
+  var sec = parseInt(st.reloadSec, 10) || 300;
+  /* 夜间禁止整页全刷（闪白会刺眼）；靠网页全黑 + 释放 wakeLock 让系统休眠 */
+  if(sec > 15 && !_nightOn && (Date.now() - lastFullRefresh) > sec * 1000){
+    doFullRefresh();
+  }
+}
+
+/* ---------- 启动 ---------- */
+function boot(){
+  fetchState(function(s, err){
+    var b = document.getElementById('boot');
+    if(!s){
+      if(b){ b.style.display = 'flex'; b.textContent = '连接失败：' + (err || '未知') + ' — 5 秒后重试'; }
+      setTimeout(boot, 5000);
+      return;
+    }
+    state = s;
+    renderedSig = JSON.stringify(s);
+    applyTheme();
+    layout();
+    renderBoard();
+    bindBoardClicks();
+    checkNight();                     // 初始化即判定夜间状态
+    if(b) b.style.display = 'none';
+
+    setInterval(loop, 1000);                    // 秒级局部刷新（无变化不动 DOM）
+    setInterval(pollState, 30000);              // 30 秒检查一次服务端数据
+    setInterval(function(){                     // 跨天自动重排
+      var d = new Date();
+      if(d.getHours() === 0 && d.getMinutes() === 0) doFullRefresh();
+    }, 30000);
+    keepAwake();
+  });
+}
+
+window.addEventListener('resize', function(){ layout(); });
+window.addEventListener('orientationchange', function(){ setTimeout(layout, 300); });
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>

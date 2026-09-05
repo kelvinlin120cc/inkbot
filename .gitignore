@@ -1,0 +1,32 @@
+# ===== 密钥 / 凭据（绝不入库）=====
+**/config.json
+**/ADMIN_CREDENTIALS.txt
+**/READONLY_TOKEN.txt
+*.key
+*.pem
+.env
+
+# ===== 运行时数据（本地状态/隐私内容，不入库；inkboard 另有 data/backups 本地快照）=====
+**/data/
+**/__pycache__/
+*.pyc
+
+# ===== 日志 =====
+*.log
+
+# ===== 依赖目录（可重装）=====
+**/node_modules/
+**/.test-deps/
+
+# ===== 生成物 / 临时探针文件 =====
+*.corrupt.json
+qr_*.png
+_fw_check.txt
+_bat_probe.bat
+
+# ===== 系统/编辑器 =====
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
