@@ -13,7 +13,6 @@
 - `InkBoardSyncEvents` → `inkboard/sync.bat`（定时从企微同步日程）
 - `QQHomeworkBot` → `qq-homework-bot/homework_bot.py`
 
-> 注：同层级的 `wecom-reminder/`（企微日程提醒推送）**不属于**本仓库，不纳入备份。
 
 ## 目录结构
 
