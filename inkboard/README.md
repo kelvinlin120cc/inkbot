@@ -44,16 +44,25 @@ PC 下的具体表现：
 
 首次打开就有示例数据（含 1 条逾期待办），可在管理端「设置 → 重置为示例数据」随时恢复。
 
-## 六个内置组件
+## 内置组件
+
+共 11 种组件，管理端可自由增删、拖动布局、调字号/幅面；其中**倒计时**和**自定义文字**可重复添加多个（开学、考试、生日各放一个倒计时）。
 
 | 组件 | 幅面 | 可调项 |
 |---|---|---|
-| 时间 | 半幅 | 字号、显示秒、12/24 小时制 |
-| 日期 | 半幅 | 字号、显示星期、副标题（如「开学第 2 周」） |
-| 待办 | 整幅 | 标题、最多显示条数、是否显示已完成 |
-| 留言 | 整幅 | 标题、最多显示条数 |
-| 日程 | 整幅 | 标题、最多显示条数、**显示未来几天（1-14 天，管理端可调）**、是否显示时间；每条显示「时间 + 内容 + 日期(MM-DD) + 星期」 |
-| 天气 | 半幅（默认）/可调 | 城市（设置页填城市名即可，经纬度自动解析）；显示温度 / 状况 / 3 日预报 |
+| 时间·天气（timewx） | 半幅 | 大号时钟 + 日期星期 + 实时天气/湿度合一，字号分档 |
+| 时间（clock） | 半幅 | 字号、显示秒、12/24 小时制 |
+| 日期（date） | 半幅 | 字号、显示星期、副标题（如「开学第 2 周」） |
+| 天气（weather） | 半幅（默认）/可调 | 城市（设置页填城市名，经纬度自动解析）；温度 / 状况 / 3 日预报 |
+| 待办（todo） | 整幅 | 标题、最多显示条数、是否显示已完成 |
+| 家庭作业（homework） | 整幅 | 标题；由 QQ 机器人/管理端写入，按教学日归组、可勾选完成 |
+| 日程（schedule） | 整幅 | 标题、最多显示条数、**显示未来几天（1-14 天，管理端可调）**、是否显示时间；每条「时间 + 内容 + 日期(MM-DD) + 星期」 |
+| 留言（message） | 整幅 | 标题、最多显示条数 |
+| 课程表（course） | 整幅 | 上传 Markdown 课程表（首列时间、后五列周一~周五），显示端只展示今天与明天的课；**启用单/双周**后按本周单双过滤【单】/【双】课程，**开学日期**自动推算单/双周 |
+| 倒计时（countdown） | 半幅 | 目标日期 + 标签，可重复添加（开学/考试/生日） |
+| 自定义文字（text） | 半幅 | 任意一句话 |
+
+> 「时间·天气」是时间与天气的合一组件（默认布局常用它）；单独的「时间」「天气」组件也仍保留，可按版式自由组合。
 
 **天气组件**：完全免费、无需 API key——数据来自 [Open-Meteo](https://open-meteo.com/) 免费接口，由服务端后台每 10 分钟自动拉取。城市在管理端「设置 → 天气组件」填写（如 `深圳` / `北京` / `上海`），经纬度通过 Open-Meteo 地理编码自动解析并缓存到 `data/board.json`；想精确到区县可手动改 `weatherLat/weatherLon`。显示端只读 `state.weather`，墨水屏本身不联网、不受 CORS 限制。
 
@@ -155,7 +164,7 @@ POST /api/push
 {"op":"msg.add",   "text":"今晚加班", "author":"爸爸"}
 ```
 
-白名单操作：`todo.add` / `msg.add` / `events.set` / `events.add` / `events.delete` / `events.clear`。配置了 token 后须带 `{"token":"..."}` 或请求头 `X-InkBoard-Token`。
+白名单操作（`/api/push` 专用，外部系统不能改布局/删数据）：`todo.add` / `homework.add` / `msg.add` / `events.set` / `events.add` / `events.delete` / `events.clear`。配置了 token 后须带 `{"token":"..."}` 或请求头 `X-InkBoard-Token`。
 
 > ✅ 企微日程链路已全线贯通：`@wecom/cli 1.2.0` 已安装到托管 node 全局（`versions\22.22.2-2`）且已授权，机器人「日程」权限已由用户重新授权生效。真实家庭日历日程已成功同步到信息台。
 
@@ -177,19 +186,25 @@ POST /api/import           整体导入 {"state":{...}}
 GET  /api/health           健康检查
 ```
 
-可用 op：`todo.add` `todo.toggle` `todo.update` `todo.delete` `todo.clearDone` `msg.add` `msg.delete` `events.set` `events.add` `events.delete` `events.clear` `layout.set` `layout.toggle` `layout.move` `layout.config` `settings.set` `reset.demo` `state.replace`
+可用 op（`/api/update`）：
+- 待办：`todo.add` `todo.toggle` `todo.update` `todo.delete` `todo.clearDone`
+- 家庭作业：`homework.add` `homework.toggle` `homework.update` `homework.delete` `homework.clearDone`
+- 留言：`msg.add` `msg.delete`
+- 日程：`events.set` `events.add` `events.delete` `events.clear`
+- 课程表：`courses.set` `courses.clear`
+- 布局/设置：`layout.set` `layout.add` `layout.toggle` `layout.move` `layout.config` `settings.set` `reset.demo` `state.replace`
 
 ## 自检
 
 ```bash
-python smoke_test.py      # 51 项逻辑与前端静态检查，不依赖网络
+python smoke_test.py      # 50+ 项逻辑与前端静态检查，不依赖网络
 ```
 
 ## 常见问题
 
 **手机连不上？** 手机和电脑要在同一个 WiFi；Windows 防火墙首次会弹窗，允许「专用网络」访问即可。
 
-**想开机自启？** 把 `start.bat` 的快捷方式放进 `shell:startup` 文件夹。
+**想开机自启？** 正式部署用 Windows 任务计划程序：登录时用 `pythonw.exe server.py --port 8765` 无窗口后台启动（任务名 `InkBoardServer`），另有 `InkBoardSyncEvents` 每 10 分钟同步企微日程。完整注册命令见仓库根 [README.md](../README.md) 的「首次部署」。简单场景也可把 `start.bat` 的快捷方式放进 `shell:startup` 文件夹（会带控制台窗口）。
 
 **地址会变？** 在路由器里给电脑绑定静态 IP，或改用电脑名访问 `http://<电脑名>:8765/`。
 

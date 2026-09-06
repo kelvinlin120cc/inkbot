@@ -31,7 +31,7 @@
 
 ### 2. 填配置
 
-复制 `config.example.json` 为 `config.json`，填入 appid / secret：
+复制 `config.example.json` 为 `config.json`，各字段含义：
 
 ```json
 {
@@ -39,13 +39,26 @@
   "secret": "你的AppSecret",
   "allowed_openids": [],
   "reply_enabled": true,
-  "inkboard": { "enabled": true, "host": "127.0.0.1", "port": 8765, "token": "" },
+  "media_dir": "",
+  "llm":     { "enabled": true, "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+               "api_key": "你的API Key", "model": "ark-code-latest",
+               "timeout": 30, "vision": true, "output_spec": "" },
+  "inkboard":{ "enabled": true, "host": "127.0.0.1", "port": 8765, "token": "" },
   "wecom":   { "enabled": true, "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." }
 }
 ```
 
-- `allowed_openids` 先留空，第一次转发成功后到 `homework_bot.log` 里找到打印的 `openid`，填进去即可锁定只有家人能用
-- `config.json` 含密钥，**不要提交到公开仓库**
+| 字段 | 说明 |
+|---|---|
+| `appid` / `secret` | 第 1 步拿到的机器人凭据 |
+| `allowed_openids` | 先留空 `[]`；首次转发后到 `homework_bot.log` 找到打印的 openid 填回，锁定仅家人可用 |
+| `reply_enabled` | 机器人是否回复「已记录」等提示 |
+| `media_dir` | 作业图片存档目录，留空用默认 `data/media` |
+| `llm` | 大模型格式化作业，详见下文「大模型解析」；`output_spec` 可追加自定义输出规范（留空用内置规范）；`vision=true` 识别纯图片作业，模型不支持图片会自动退化为纯文字 |
+| `inkboard` | 看板地址，本机默认 `127.0.0.1:8765`；`token` 对应看板「设置」里的 webhook token（未设留空） |
+| `wecom` | 是否把作业推到企业微信群；`webhook` 填群机器人地址 |
+
+`config.json` 含密钥，**不要提交到公开仓库**（已被 `.gitignore` 忽略）。
 
 ### 3. 装依赖（已装可跳过）
 
