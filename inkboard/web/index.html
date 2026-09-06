@@ -539,6 +539,34 @@ function pickWeekSubj(raw, isOdd){
   return out.trim();
 }
 
+/* 解析「开学日期」配置，返回本地时区零点的 Date；无法解析返回 null。
+   兼容 'YYYY-MM-DD'、'YYYY/M/D'、'YYYY年M月D日' 等写法。 */
+function parseTermDate(s){
+  if(!s) return null;
+  var m = /^\s*(\d{4})\s*[-/年.]\s*(\d{1,2})\s*[-/月.]\s*(\d{1,2})\s*日?\s*$/.exec(String(s));
+  if(!m) return null;
+  var y = parseInt(m[1], 10), mo = parseInt(m[2], 10), d = parseInt(m[3], 10);
+  if(mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  var dt = new Date(y, mo - 1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return dt;
+}
+
+/* 由开学日期推算「显示日」所在教学周是否单周。
+   规则：开学那一周（开学日所在自然周，以周一为周首）为单周，之后每 7 天单/双交替。
+   返回 { isOdd:Boolean } 或 null（开学日期无效时）。 */
+function termWeekInfo(termStartStr, shownDate){
+  var anchor = parseTermDate(termStartStr);
+  if(!anchor) return null;
+  var anchorMonday = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+  anchorMonday.setDate(anchorMonday.getDate() - ((anchorMonday.getDay() + 6) % 7));  // 开学日回退到当周周一
+  var shownMonday = new Date(shownDate.getFullYear(), shownDate.getMonth(), shownDate.getDate());
+  shownMonday.setDate(shownMonday.getDate() - ((shownMonday.getDay() + 6) % 7));       // 显示日回退到当周周一
+  var weekDiff = Math.round((shownMonday - anchorMonday) / (7 * 24 * 3600 * 1000));
+  if(weekDiff < 0) return null;   // 开学之前不算教学周
+  return { isOdd: (weekDiff % 2 === 0) };
+}
+
 /* ---------- SVG 图标（内联，不用 emoji） ---------- */
 var ICON = {
   todo:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>',
@@ -972,7 +1000,7 @@ var COMPONENTS = {
   course: {
     name: '课程表',
     span: 12,
-    defaults: {},
+    defaults: { termStart: '2026-08-31' },   // 开学日默认值（开学当周=单周），可在管理端修改；推算逻辑不硬编码
     render: function(cfg, ctx){
       var t = parseCourseTable(ctx.courses);
       var head = '<div class="blk-hd">' + ICON.course + '<span>课程表</span></div>';
@@ -1002,12 +1030,11 @@ var COMPONENTS = {
          课程单元格按原文展示。开启时显示周次标签，并把【单】/【双】课程按本周匹配，只显示对应内容。 */
       var oddEvenOn = cfg.showOddEven !== false;
 
-      /* 单双周：以「显示的那天」所在教学周推算。
-         基准：2026-08-31（周一）所在周为单周；每隔 7 天单/双交替。
-         换学期时把 ANCHOR_MONDAY 改成新学期第一个「单周」的周一即可。 */
-      var isOddWeek = true;
+      /* 单双周：以「显示的那天」所在教学周推算，锚点来自管理端配置的开学日期
+         （开学日所在自然周为单周，之后每 7 天单/双交替），不再硬编码。
+         未配置/无法解析开学日期、或尚在开学之前，则不显示周次标签、课程原文展示。 */
+      var isOddWeek = true, weekActive = false;
       if(oddEvenOn){
-        var ANCHOR_MONDAY = new Date(2026, 7, 31);      // 2026-08-31 周一 = 单周
         var shown = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         if(wd === 0){
           shown.setDate(shown.getDate() + 1);           // 周日 → 次日周一
@@ -1016,12 +1043,12 @@ var COMPONENTS = {
           if(nxw === 6 || nxw === 0){ shown.setDate(shown.getDate() + ((1 - wd + 7) % 7)); } // 周五/六 → 下周一
           else { shown.setDate(shown.getDate() + 1); }  // 工作日 → 明天
         }
-        var shownMonday = new Date(shown);
-        shownMonday.setDate(shownMonday.getDate() - ((shownMonday.getDay() + 6) % 7));  // 回退到该周周一
-        var weekDiff = Math.round((shownMonday - ANCHOR_MONDAY) / (7 * 24 * 3600 * 1000));
-        isOddWeek = (weekDiff % 2 === 0);
-        var weekTag = isOddWeek ? '单周' : '双周';
-        label = label + ' · ' + weekTag;
+        var wi = termWeekInfo(cfg.termStart, shown);
+        if(wi){
+          weekActive = true;
+          isOddWeek = wi.isOdd;
+          label = label + ' · ' + (isOddWeek ? '单周' : '双周');
+        }
       }
 
       function dayBlock(dayI, lbl, flag){
@@ -1031,7 +1058,7 @@ var COMPONENTS = {
                  '<div class="cs-empty">周末无课</div></div>';
         }
         var rows = '';
-        /* 单周周一：在第一节上方加升旗提示行（仅单双周功能开启时） */
+        /* 单周周一：在第一节上方加升旗提示行（仅单双周功能生效时） */
         if(flag){
           rows += '<div class="cs-row cs-flag"><span class="cs-t">' + esc(flag.t) + '</span>' +
                   '<span class="cs-s">' + esc(flag.s) + '</span></div>';
@@ -1039,8 +1066,8 @@ var COMPONENTS = {
         for(var i = 0; i < t.data.length; i++){
           var drow = t.data[i];
           var rawSubj = drow.subs[dayI - 1] || '';   // subs[0]=周一
-          /* 开启单双周时按本周匹配【单】/【双】内容；关闭时原文展示 */
-          var subj = oddEvenOn ? pickWeekSubj(rawSubj, isOddWeek) : rawSubj;
+          /* 单双周生效时按本周匹配【单】/【双】内容；否则原文展示 */
+          var subj = weekActive ? pickWeekSubj(rawSubj, isOddWeek) : rawSubj;
           var periodLabel = periodLabelOf(drow.time, i);
           /* 节次（第一节…）恒显；时间段（8:30-9:10）仅 showTime 为真时附加 */
           var tText = cfg.showTime
@@ -1052,8 +1079,8 @@ var COMPONENTS = {
         }
         return '<div class="cs-day"><div class="cs-dh">' + esc(lbl) + '</div>' + rows + '</div>';
       }
-      /* 单周且显示周一课程 → 第一节上方插入升旗行；双周或功能关闭则不插入 */
-      var mondayFlag = (oddEvenOn && dayIdx === 1 && isOddWeek) ? { t: '7:45', s: '升旗' } : null;
+      /* 单周且显示周一课程 → 第一节上方插入升旗行；双周或单双周未生效则不插入 */
+      var mondayFlag = (weekActive && dayIdx === 1 && isOddWeek) ? { t: '7:45', s: '升旗' } : null;
       var body = '<div class="c-course" style="--fsize:calc(var(--us) * ' + (cfg.size || 1) + ')">' +
         dayBlock(dayIdx, label, mondayFlag) +
         '</div>';

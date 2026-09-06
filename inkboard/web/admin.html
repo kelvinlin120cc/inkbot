@@ -930,6 +930,7 @@ var CFIELDS = {
     {key:'size', label:'内容字号（1=基准，0.6–2.5 可调，越大越大）', type:'range', min:0.6, max:2.5, step:0.1},
     {key:'showTime', label:'显示具体上课时间（如 8:30-9:10），节次（第一节…）始终显示', type:'bool'},
     {key:'showOddEven', label:'启用单周/双周：显示「单周/双周」标签，并把【单】/【双】课程按本周匹配（只显示本周课程）；关闭则原样显示全部内容', type:'bool'},
+    {key:'termStart', label:'本学期开学日期（开学那一周为单周，之后自动推算单/双周）', type:'date'},
     {key:'markdown', label:'课程表（上传 .md 文件，或在下方粘贴 Markdown）', type:'markdown'}
   ],
   timewx: [
@@ -953,7 +954,7 @@ var CDEFAULTS = {
   message:{maxItems:3, title:'留言板'},
   countdown:{label:'', target:'', size:7},
   text:{content:'在这里写一句话', size:2.4},
-  course:{size:1, showTime:true, showOddEven:true},
+  course:{size:1, showTime:true, showOddEven:true, termStart:'2026-08-31'},
   timewx:{showSeconds:false, showWeather:true, showHumidity:true, size:13, dateSize:0.235, weekSize:0.235, tempSize:0.245, descSize:0.24, humSize:0.2}
 };
 
@@ -1256,7 +1257,8 @@ function renderField(cid, idx, f, val){
       '" data-ftype="number" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
   }
   if(f.type === 'date'){
-    return head + '<input type="date" id="' + id + '" value="' + esc(val || '') +
+    var dval = (val != null && val !== '') ? val : (((CDEFAULTS[cid] || {})[f.key] != null) ? (CDEFAULTS[cid] || {})[f.key] : '');
+    return head + '<input type="date" id="' + id + '" value="' + esc(dval) +
       '" data-ftype="date" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></div>';
   }
   if(f.type === 'textarea'){
