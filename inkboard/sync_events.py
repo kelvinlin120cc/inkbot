@@ -109,9 +109,13 @@ def from_wecom(days, include_past=0):
     begin = (datetime.datetime.now() - datetime.timedelta(days=include_past)).strftime("%Y-%m-%d 00:00:00")
     end = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d 23:59:59")
     payload = json.dumps({"begin_time": begin, "end_time": end}, ensure_ascii=False)
+    # CREATE_NO_WINDOW：本进程由 pythonw.exe（无控制台）拉起，而 node.exe 是控制台程序。
+    # 若不显式加此标志，Windows 每次都会为 node 新建一个控制台窗口 → 每 10 分钟闪一次黑窗。
+    # capture_output 只重定向输出句柄，不能阻止窗口创建，必须用 creationflags。
     proc = subprocess.run(
         [node, js, "calendar", "schedules", "list", "--json", payload],
         capture_output=True, text=True, encoding="utf-8", timeout=60,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     out = (proc.stdout or "").strip()
     if not out:
