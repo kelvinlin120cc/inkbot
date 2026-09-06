@@ -507,6 +507,38 @@ function periodLabelOf(timeStr, idx){
   return '第' + cnNum(n) + '节';
 }
 
+/* 解析单个课程单元格，返回 { common:'每周都有（去掉单双标记后的内容，可能为空）',
+   odd:'单周内容(可能为空)', even:'双周内容(可能为空' }。
+   约定：用【单】/【双】（或半角 [单]/[双]）标记，多个分段用 / 分隔。
+   例：'【单】外教(小)/【双】道法1' → {common:'', odd:'外教(小)', even:'道法1'}
+       '体育'                       → {common:'体育', odd:'', even:''}
+       '数学/【单】自习'            → {common:'数学', odd:'自习', even:''}（双周只上数学） */
+function parseCourseCell(raw){
+  var res = { common:'', odd:'', even:'' };
+  var parts = String(raw || '').split('/');
+  for(var i = 0; i < parts.length; i++){
+    var seg = parts[i].trim();
+    if(!seg) continue;
+    var mo = /^[【\[]\s*单\s*[】\]]\s*(.*)$/.exec(seg);
+    var me = /^[【\[]\s*双\s*[】\]]\s*(.*)$/.exec(seg);
+    if(mo){ res.odd += (res.odd ? '/' : '') + mo[1].trim(); }
+    else if(me){ res.even += (res.even ? '/' : '') + me[1].trim(); }
+    else { res.common += (res.common ? '/' : '') + seg; }
+  }
+  return res;
+}
+
+/* 按本周单双取出该格最终显示内容。
+   isOdd=true 单周 / false 双周；返回 '' 表示本周该时段无课。
+   每周固定内容始终保留；单/双内容仅对应周次保留。 */
+function pickWeekSubj(raw, isOdd){
+  var p = parseCourseCell(raw);
+  var out = p.common;
+  var wk = isOdd ? p.odd : p.even;
+  if(wk){ out = out ? (out + ' / ' + wk) : wk; }
+  return out.trim();
+}
+
 /* ---------- SVG 图标（内联，不用 emoji） ---------- */
 var ICON = {
   todo:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>',
@@ -966,23 +998,31 @@ var COMPONENTS = {
         dayIdx = next;
       }
 
+      /* 单双周功能开关（默认开启）：关闭时不显示「单周/双周」标签，也不按周过滤课程，
+         课程单元格按原文展示。开启时显示周次标签，并把【单】/【双】课程按本周匹配，只显示对应内容。 */
+      var oddEvenOn = cfg.showOddEven !== false;
+
       /* 单双周：以「显示的那天」所在教学周推算。
          基准：2026-08-31（周一）所在周为单周；每隔 7 天单/双交替。
          换学期时把 ANCHOR_MONDAY 改成新学期第一个「单周」的周一即可。 */
-      var ANCHOR_MONDAY = new Date(2026, 7, 31);      // 2026-08-31 周一 = 单周
-      var shown = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if(wd === 0){
-        shown.setDate(shown.getDate() + 1);           // 周日 → 次日周一
-      }else if(hr >= 8){
-        var nxw = (wd + 1) % 7;
-        if(nxw === 6 || nxw === 0){ shown.setDate(shown.getDate() + ((1 - wd + 7) % 7)); } // 周五/六 → 下周一
-        else { shown.setDate(shown.getDate() + 1); }  // 工作日 → 明天
+      var isOddWeek = true;
+      if(oddEvenOn){
+        var ANCHOR_MONDAY = new Date(2026, 7, 31);      // 2026-08-31 周一 = 单周
+        var shown = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if(wd === 0){
+          shown.setDate(shown.getDate() + 1);           // 周日 → 次日周一
+        }else if(hr >= 8){
+          var nxw = (wd + 1) % 7;
+          if(nxw === 6 || nxw === 0){ shown.setDate(shown.getDate() + ((1 - wd + 7) % 7)); } // 周五/六 → 下周一
+          else { shown.setDate(shown.getDate() + 1); }  // 工作日 → 明天
+        }
+        var shownMonday = new Date(shown);
+        shownMonday.setDate(shownMonday.getDate() - ((shownMonday.getDay() + 6) % 7));  // 回退到该周周一
+        var weekDiff = Math.round((shownMonday - ANCHOR_MONDAY) / (7 * 24 * 3600 * 1000));
+        isOddWeek = (weekDiff % 2 === 0);
+        var weekTag = isOddWeek ? '单周' : '双周';
+        label = label + ' · ' + weekTag;
       }
-      var shownMonday = new Date(shown);
-      shownMonday.setDate(shownMonday.getDate() - ((shownMonday.getDay() + 6) % 7));  // 回退到该周周一
-      var weekDiff = Math.round((shownMonday - ANCHOR_MONDAY) / (7 * 24 * 3600 * 1000));
-      var weekTag = (weekDiff % 2 === 0) ? '单周' : '双周';
-      label = label + ' · ' + weekTag;
 
       function dayBlock(dayI, lbl, flag){
         var col = t.wmap[dayI];
@@ -991,14 +1031,16 @@ var COMPONENTS = {
                  '<div class="cs-empty">周末无课</div></div>';
         }
         var rows = '';
-        /* 双周周一：在第一节上方加升旗提示行 */
+        /* 单周周一：在第一节上方加升旗提示行（仅单双周功能开启时） */
         if(flag){
           rows += '<div class="cs-row cs-flag"><span class="cs-t">' + esc(flag.t) + '</span>' +
                   '<span class="cs-s">' + esc(flag.s) + '</span></div>';
         }
         for(var i = 0; i < t.data.length; i++){
           var drow = t.data[i];
-          var subj = drow.subs[dayI - 1] || '';   // subs[0]=周一
+          var rawSubj = drow.subs[dayI - 1] || '';   // subs[0]=周一
+          /* 开启单双周时按本周匹配【单】/【双】内容；关闭时原文展示 */
+          var subj = oddEvenOn ? pickWeekSubj(rawSubj, isOddWeek) : rawSubj;
           var periodLabel = periodLabelOf(drow.time, i);
           /* 节次（第一节…）恒显；时间段（8:30-9:10）仅 showTime 为真时附加 */
           var tText = cfg.showTime
@@ -1010,8 +1052,8 @@ var COMPONENTS = {
         }
         return '<div class="cs-day"><div class="cs-dh">' + esc(lbl) + '</div>' + rows + '</div>';
       }
-      /* 单周且显示周一课程 → 第一节上方插入升旗行；双周则不插入 */
-      var mondayFlag = (dayIdx === 1 && weekTag === '单周') ? { t: '7:45', s: '升旗' } : null;
+      /* 单周且显示周一课程 → 第一节上方插入升旗行；双周或功能关闭则不插入 */
+      var mondayFlag = (oddEvenOn && dayIdx === 1 && isOddWeek) ? { t: '7:45', s: '升旗' } : null;
       var body = '<div class="c-course" style="--fsize:calc(var(--us) * ' + (cfg.size || 1) + ')">' +
         dayBlock(dayIdx, label, mondayFlag) +
         '</div>';

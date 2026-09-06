@@ -929,6 +929,7 @@ var CFIELDS = {
   course: [
     {key:'size', label:'内容字号（1=基准，0.6–2.5 可调，越大越大）', type:'range', min:0.6, max:2.5, step:0.1},
     {key:'showTime', label:'显示具体上课时间（如 8:30-9:10），节次（第一节…）始终显示', type:'bool'},
+    {key:'showOddEven', label:'启用单周/双周：显示「单周/双周」标签，并把【单】/【双】课程按本周匹配（只显示本周课程）；关闭则原样显示全部内容', type:'bool'},
     {key:'markdown', label:'课程表（上传 .md 文件，或在下方粘贴 Markdown）', type:'markdown'}
   ],
   timewx: [
@@ -952,7 +953,7 @@ var CDEFAULTS = {
   message:{maxItems:3, title:'留言板'},
   countdown:{label:'', target:'', size:7},
   text:{content:'在这里写一句话', size:2.4},
-  course:{size:1},
+  course:{size:1, showTime:true, showOddEven:true},
   timewx:{showSeconds:false, showWeather:true, showHumidity:true, size:13, dateSize:0.235, weekSize:0.235, tempSize:0.245, descSize:0.24, humSize:0.2}
 };
 
@@ -1239,8 +1240,10 @@ function bindLibEvents(){
 function renderField(cid, idx, f, val){
   var id = 'f_' + cid + '_' + idx + '_' + f.key;
   if(f.type === 'bool'){
+    if(val === undefined || val === null) val = (CDEFAULTS[cid] || {})[f.key];
+    var bval = !!val;
     return '<div class="sw"><span class="t">' + esc(f.label) + '</span>' +
-      '<button class="toggle' + (val ? ' on' : '') + '" data-fid="' + id + '" data-ftype="bool" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></button></div>';
+      '<button class="toggle' + (bval ? ' on' : '') + '" data-fid="' + id + '" data-ftype="bool" data-cid="' + cid + '" data-i="' + idx + '" data-key="' + f.key + '"></button></div>';
   }
   var head = '<div class="field"><label>' + esc(f.label) + '</label>';
   if(f.type === 'range'){

@@ -102,7 +102,7 @@ COMPONENT_DEFAULTS = {
     "countdown": {"label": "倒计时", "target": "", "size": 7},
     "text":      {"content": "在这里写一句话", "size": 2.4},
     "weather":   {},
-    "course":    {"size": 1, "showTime": True},
+    "course":    {"size": 1, "showTime": True, "showOddEven": True},
     "timewx":    {"showSeconds": False, "showWeather": True, "showHumidity": True, "size": 13, "dateSize": 0.235, "weekSize": 0.235, "tempSize": 0.245, "descSize": 0.24, "humSize": 0.2},
 }
 
