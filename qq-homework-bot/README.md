@@ -71,12 +71,12 @@ C:\Users\Kelvinlin\.workbuddy\binaries\python\envs\qqbot\Scripts\python.exe self
 
 ## 开机自启（可选）
 
-用 PowerShell（管理员）执行一次，之后每次登录自动后台运行：
+用 PowerShell（管理员）执行一次，之后每次登录自动后台运行（`$root` 换成 inkbot 仓库根目录）：
 
 ```powershell
-$py  = "C:\Users\Kelvinlin\.workbuddy\binaries\python\envs\qqbot\Scripts\python.exe"
-$dir = "D:\workbuddy\家庭日程管理\qq-homework-bot"
-$a = New-ScheduledTaskAction -Execute $py -Argument "homework_bot.py" -WorkingDirectory $dir
+$pyw = "C:\Users\Kelvinlin\.workbuddy\binaries\python\envs\qqbot\Scripts\pythonw.exe"
+$root = "D:\workbuddy\家庭日程管理\inkbot"
+$a = New-ScheduledTaskAction -Execute $pyw -Argument "homework_bot.py" -WorkingDirectory "$root\qq-homework-bot"
 $t = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName "QQHomeworkBot" -Action $a -Trigger $t `
   -Description "QQ作业收集机器人" -Force

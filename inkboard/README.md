@@ -144,7 +144,7 @@ python sync_events.py --source wecom --days 14
 python sync_events.py --source wecom --include-past 3
 ```
 
-> 🔗 **同步窗口自动跟随显示窗口**：`sync.bat` 不再写死 `--days`，而是读取信息台 board.json 里「家庭日程」组件的 `withinDays`（1-14）。你在管理端把「显示未来几天」调到几，企微同步就拉几天——显示与拉取永远对齐，杜绝「企微有、信息台看不到」的落差（2026-09-02 曾因同步窗口仅 3 天而漏掉 9-12 旭旭编程课，现已改为跟随配置）。
+> 🔗 **同步窗口自动跟随显示窗口**：同步不写死 `--days`，而是读取信息台 board.json 里「家庭日程」组件的 `withinDays`（1-14）。你在管理端把「显示未来几天」调到几，企微同步就拉几天——显示与拉取永远对齐，杜绝「企微有、信息台看不到」的落差。
 
 推送接口（token 为空则免鉴权，可在管理端「设置」里配置）：
 
@@ -159,7 +159,7 @@ POST /api/push
 
 > ✅ 企微日程链路已全线贯通：`@wecom/cli 1.2.0` 已安装到托管 node 全局（`versions\22.22.2-2`）且已授权，机器人「日程」权限已由用户重新授权生效。真实家庭日历日程已成功同步到信息台。
 
-**自动同步已挂载**：Windows 计划任务 `InkBoardSyncEvents` 每 10 分钟自动运行 `sync.bat`（与 `WeComReminderPush` 错峰 5 分钟），按管理端「显示未来几天」配置把企微对应天数内的日程同步到信息台。日志在 `inkboard/sync.log`。在企微里新建日程后，最迟 10 分钟自动出现在墨水屏上。
+**自动同步已挂载**：Windows 计划任务 `InkBoardSyncEvents` 每 10 分钟直接用 `pythonw.exe sync_events.py --source wecom` 无窗口运行（不再经过 sync.bat），按管理端「显示未来几天」配置把企微对应天数内的日程同步到信息台。日志在 `inkboard/sync.log`。在企微里新建日程后，最迟 10 分钟自动出现在墨水屏上。
 
 ## 数据与备份
 
