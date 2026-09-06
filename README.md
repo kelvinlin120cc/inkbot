@@ -2,10 +2,10 @@
 
 家庭自动化小工具集合，包含两个相互配合的本地服务：
 
-| 子项目 | 作用 |
-|---|---|
-| **inkboard/** | 家庭信息看板（InkBoard）。HTTP 服务（默认端口 8765），墨水屏/平板展示日程、家庭作业、天气、课程表等；带管理端。`sync_events.py` 从企业微信日历拉取日程。管理端可灵活增删时间天气、家庭日程、课程表、待办、留言等组件，编辑组件大小、位置等。 |
-| **qq-homework-bot/** | QQ 作业收集机器人。手机 QQ 转发老师作业消息给机器人，自动解析（可选大模型整理）后写入 InkBoard「家庭作业」组件。 |
+| 子项目                  | 作用                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **inkboard/**        | 家庭信息看板（InkBoard）。HTTP 服务（默认端口 8765），墨水屏/平板展示日程、家庭作业、天气、课程表等；带管理端。`sync_events.py` 从企业微信日历拉取日程。管理端可灵活增删时间天气、家庭日程、课程表、待办、留言等组件，编辑组件大小、位置等。 |
+| **qq-homework-bot/** | QQ 作业收集机器人。手机 QQ 转发老师作业消息给机器人，自动解析（可选大模型整理）后写入 InkBoard「家庭作业」组件。                                                                         |
 
 两个服务通过本机 HTTP（`127.0.0.1:8765`）通信，均由 Windows 任务计划程序在登录时自启。
 任务统一用 `pythonw.exe` 无窗口启动（不弹控制台）；程序检测到无控制台时会把 stdout/stderr 重定向到各自日志文件，便于后台排查。
@@ -37,7 +37,7 @@ inkbot/
 
 各子项目的详细说明见其目录内的 `README.md`。
 
----
+***
 
 ## 内容从哪来：两种模式
 
@@ -45,23 +45,23 @@ inkbot/
 
 ### 家庭日程
 
-| 模式 | 说明 |
-|---|---|
-| **① 企业微信日程自动同步**（推荐） | 给管理家庭日程的成员开通企业微信，用**企业微信的日程**作为家庭日程载体。若多人都要编辑/管理，创建一个**共享日程**（日历）并授予成员编辑权限（详见[附录 A](#附录-a企业微信创建共享家庭日程)）。`InkBoardSyncEvents` 任务每 10 分钟自动把企微日程拉到看板，在企微里新建/改日程后最迟 10 分钟上屏。 |
-| **② 手动模式** | 在管理端「日程」页直接新增/编辑/删除日程（标题、日期、起止时间）。适合不用企微、或临时补一条的情况。 |
+| 模式                   | 说明                                                                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **① 企业微信日程自动同步**（推荐） | 给需要编辑管理家庭日程的成员开通企业微信，只通过看板查看的成员无需开通，用**企业微信的日程**作为家庭日程载体。若多人都要编辑/管理，创建一个**共享日程**（日历）并授予成员编辑权限（详见[附录 A](#附录-a企业微信创建共享家庭日程)）。`InkBoardSyncEvents` 任务每 10 分钟自动把企微日程拉到看板，在企微里新建/改日程后最迟 10 分钟上屏。 |
+| **② 手动模式**           | 在管理端「日程」页直接新增/编辑/删除日程（标题、日期、起止时间）。适合不用企微、或临时补一条的情况。                                                                                                                                         |
 
 > 两种模式写的都是同一批日程数据。自动同步会按周期用企微内容覆盖（`events.set`），手动加的日程若不同步来源，下次同步可能被企微结果替换；建议以企微为准、手动仅做临时补充。
 
 ### 家庭作业
 
-| 模式 | 说明 |
-|---|---|
+| 模式                   | 说明                                                                                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **① QQ 机器人转发模式**（推荐） | 学校老师在 **QQ 群**发作业时，直接**转发**或**复制粘贴**发给 QQ 机器人；机器人调用配置的大模型把口语化作业**格式化、拆条、识别科目/截止日**，推送到墨水屏「家庭作业」组件，同时发到企业微信群。若老师用**其它方式**（微信、短信、纸质、口头等）布置，同样把内容**复制后发给 QQ 机器人**即可，多条可用合并转发。机器人创建与参数配置见[附录 B](#附录-b创建-qq-机器人并配置参数)。 |
-| **② 手动模式** | 在管理端「作业」页手动新增作业；也可把作业原文粘贴进「AI 格式化」框，点「格式化」让大模型拆条后一键加入看板。 |
+| **② 手动模式**           | 在管理端「作业」页手动新增作业；也可把作业原文粘贴进「AI 格式化」框，点「格式化」让大模型拆条后一键加入看板。                                                                                                                                                          |
 
 > 作业在看板上按「教学日」归组，每天 08:00 为换日点（周五作业会保留到周一早上）。
 
----
+***
 
 ## 首次部署（换机器 / 重新克隆后）
 
@@ -73,11 +73,9 @@ inkbot/
   `C:\Users\<用户>\.workbuddy\binaries\python\versions\3.13.12\`（含 `python.exe` / `pythonw.exe`）。
 - **Node.js**（企微日程同步需要）。本机约定放在
   `C:\Users\<用户>\.workbuddy\binaries\node\versions\22.22.2-2\`，并在其全局安装企微 CLI：
-
   ```bat
   "C:\Users\<用户>\.workbuddy\binaries\node\versions\22.22.2-2\npm.cmd" i -g @wecom/cli
   ```
-
   > 装完需按 @wecom/cli 的引导**登录并授权机器人「日程」权限**（企业微信「工作台 → 智能机器人」里对该机器人授权日程读取）。授权过期时同步日志会报 `errcode=850003`，重新授权即可。
   > 不用企微同步（纯手动日程）可跳过 Node 这一步。
 
@@ -131,6 +129,75 @@ Register-ScheduledTask -TaskName "InkBoardSyncEvents" -Action $a3 -Trigger $trg 
 
 > 密钥、运行数据（`data/`）、日志均**不入库**，见 `.gitignore`。
 
+***
+
+## 支持的操作系统
+
+代码本身是跨平台 Python（路径全用 `__file__` + `os.path.join`，HTTP 走标准库，前端是纯 ES5 网页），
+但本仓库在 **Windows 11** 上开发，开箱即用的部署脚本/自启方式是 Windows 的。各平台情况：
+
+| 能力 | Windows 10/11 | macOS | Linux |
+|---|---|---|---|
+| InkBoard 看板服务（server.py） | ✅ | ✅ | ✅ |
+| QQ 作业机器人（homework_bot.py） | ✅ | ✅ | ✅（需系统有 `curl`） |
+| 管理端 / 显示端网页 | ✅ | ✅ | ✅ |
+| 企微日程自动同步（sync_events.py --source wecom） | ✅ | ⚠️ 见下 | ⚠️ 见下 |
+| 日程/作业**手动模式** | ✅ | ✅ | ✅ |
+| 无窗口后台运行 | `pythonw.exe` | `pythonw`/`nohup` | `nohup`/systemd |
+| 开机自启 | 任务计划程序 | launchd | systemd |
+
+### 跨平台差异与处理
+
+- **Python**：3.13（3.9+ 亦可）。inkboard 纯标准库、无需装包；QQ 机器人需 `pip install -r qq-homework-bot/requirements.txt`（`qq-botpy`）。
+- **curl**：QQ 机器人所有出站 HTTP 都调用系统 `curl`。Windows 10+ 与 macOS 自带；**精简版 Linux 需先装**：`sudo apt install curl`（或 `yum install curl`）。
+- **企微日程同步（仅 Windows 开箱可用）**：`sync_events.py` 通过 Node 跑 `@wecom/cli` 拉企微日历，其安装路径探测列表 `NODE_DIRS` 目前只写了 Windows 路径并查找 `node.exe`。在 macOS/Linux 上：
+  - 先装 Node 并全局安装：`npm i -g @wecom/cli`，按 CLI 引导授权「日程」权限；
+  - 因代码暂未内置类 Unix 路径探测，需在 `inkboard/sync_events.py` 的 `NODE_DIRS` 里追加你的 Node 安装目录，并把探测的可执行名从 `node.exe` 改为 `node`（或把 `node` 加入 PATH 后自行调用）。
+  - **不折腾**：日程改用管理端**手动模式**即可完全跳过 Node / 企微依赖，看板其余功能不受影响。
+- **无窗口 / 自启**：`CREATE_NO_WINDOW`、`pythonw.exe`、`.bat`、任务计划程序都是 Windows 专用；代码已用 `getattr(subprocess, "CREATE_NO_WINDOW", 0)` 安全降级，非 Windows 下无副作用。macOS/Linux 用 `nohup python3 xxx.py &` 后台跑，自启用 launchd（macOS）或 systemd（Linux）。
+
+### macOS / Linux 手动运行（开发/调试）
+
+```bash
+# 看板（终端前台，Ctrl-C 停止）
+python3 inkboard/server.py --port 8765
+
+# QQ 机器人（另开一个终端；先 cp config.example.json config.json 并填写）
+python3 -m venv ~/.venv/qqbot && ~/.venv/qqbot/bin/pip install -r qq-homework-bot/requirements.txt
+(cd qq-homework-bot && ~/.venv/qqbot/bin/python homework_bot.py)
+
+# 后台常驻（nohup，日志重定向到文件）
+nohup python3 inkboard/server.py --port 8765 >> inkboard/server.log 2>&1 &
+```
+
+### Linux systemd 自启示例
+
+`/etc/systemd/system/inkboard.service`：
+
+```ini
+[Unit]
+Description=InkBoard server
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/inkbot/inkboard
+ExecStart=/usr/bin/python3 /opt/inkbot/inkboard/server.py --port 8765
+Restart=always
+User=你的用户名
+
+[Install]
+WantedBy=multi-user.target
+```
+
+QQ 机器人同理再建一个 service（`WorkingDirectory=/opt/inkbot/qq-homework-bot`，`ExecStart=.../python homework_bot.py`）。
+然后 `sudo systemctl daemon-reload && sudo systemctl enable --now inkboard`。企微定时同步再加一个 `*.timer`（每 10 分钟）或用 cron：
+
+```cron
+*/10 * * * * cd /opt/inkbot/inkboard && /usr/bin/python3 sync_events.py --source wecom >> sync.log 2>&1
+```
+
+> macOS 用 launchd 的 `~/Library/LaunchAgents/*.plist`（`RunAtLoad=true` 常驻、`StartInterval=600` 定时）实现等价能力，这里不再展开。
+
 ---
 
 ## 备份与同步（GitHub）
@@ -148,7 +215,7 @@ git push
 
 换新机器克隆后，按上面「首次部署」补齐运行时、密钥和数据目录即可恢复运行。
 
----
+***
 
 ## 附录 A：企业微信创建共享家庭日程
 
@@ -170,7 +237,7 @@ git push
 > 若日志出现 `errcode=850003 authorization expired`，表示机器人日程授权过期，回到第 3 步重新授权即可。
 > 企业微信界面文案会随版本调整，按钮名称以你看到的为准。
 
----
+***
 
 ## 附录 B：创建 QQ 机器人并配置参数
 
@@ -178,23 +245,22 @@ git push
 2. 进入「机器人」→ **创建机器人**，记下 **AppID** 和 **AppSecret**（Secret 只显示一次，妥善保存）。
 3. 用你或孩子的 QQ **把机器人加为好友**（机器人详情页有「添加为好友」/体验入口）；若提示沙箱/未发布，把测试 QQ 号加入**白名单**。
 4. **回填配置**：把 AppID/AppSecret 填入 `qq-homework-bot/config.json`：
-
-   | 配置项 | 说明 |
-   |---|---|
-   | `appid` / `secret` | 第 2 步拿到的机器人凭据 |
-   | `allowed_openids` | 允许使用的用户 openid 列表；**先留空 `[]`**，首次转发成功后到 `homework_bot.log` 找到打印的 `openid` 填回来，锁定仅家人可用 |
-   | `reply_enabled` | 机器人是否回复「已记录」等提示，默认 `true` |
-   | `media_dir` | 作业图片存档目录，留空则用默认 `data/media` |
-   | `llm.enabled` | 是否启用大模型格式化作业 |
+   | 配置项                                  | 说明                                                                                                           |
+   | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+   | `appid` / `secret`                   | 第 2 步拿到的机器人凭据                                                                                                |
+   | `allowed_openids`                    | 允许使用的用户 openid 列表；**先留空** **`[]`**，首次转发成功后到 `homework_bot.log` 找到打印的 `openid` 填回来，锁定仅家人可用                    |
+   | `reply_enabled`                      | 机器人是否回复「已记录」等提示，默认 `true`                                                                                    |
+   | `media_dir`                          | 作业图片存档目录，留空则用默认 `data/media`                                                                                 |
+   | `llm.enabled`                        | 是否启用大模型格式化作业                                                                                                 |
    | `llm.base_url` / `model` / `api_key` | OpenAI 兼容接口。火山方舟示例 `base_url=https://ark.cn-beijing.volces.com/api/v3`，`model` 填接入点 ID；`api_key` 留空则自动回退规则解析 |
-   | `llm.vision` | `true` 时纯图片作业（黑板/卷子照）发给支持视觉的模型识别；模型不支持图片会自动退化为纯文字重试 |
-   | `llm.output_spec` | 自定义输出规范（自由文本），会追加到系统提示，留空用内置规范 |
-   | `inkboard.host` / `port` / `token` | 看板地址，本机默认 `127.0.0.1:8765`；`token` 对应看板「设置」里的 webhook token（未设则留空） |
-   | `wecom.enabled` / `wecom.webhook` | 是否把作业推送到企业微信群；`webhook` 填群机器人地址（企微群 → 群机器人 → 添加 → 复制 Webhook 地址） |
-
+   | `llm.vision`                         | `true` 时纯图片作业（黑板/卷子照）发给支持视觉的模型识别；模型不支持图片会自动退化为纯文字重试                                                          |
+   | `llm.output_spec`                    | 自定义输出规范（自由文本），会追加到系统提示，留空用内置规范                                                                               |
+   | `inkboard.host` / `port` / `token`   | 看板地址，本机默认 `127.0.0.1:8765`；`token` 对应看板「设置」里的 webhook token（未设则留空）                                           |
+   | `wecom.enabled` / `wecom.webhook`    | 是否把作业推送到企业微信群；`webhook` 填群机器人地址（企微群 → 群机器人 → 添加 → 复制 Webhook 地址）                                             |
 5. **自测与上线**：
    - 离线自测（不需 appid）：`...\envs\qqbot\Scripts\python.exe selftest.py --send-wecom`；
    - 启动 `QQHomeworkBot` 任务（或 `start.bat`），日志出现「机器人已上线」即成功；
    - 手机 QQ 长按老师作业消息 → 转发 → 选该机器人 → 发送，机器人秒回「已记录」，作业上看板、图片和文字进企微群。
 
 > 走的是单聊（C2C）转发，不需要群管理权限、不需要企业认证、不破解客户端；多条消息可**合并转发**一次发出。
+
