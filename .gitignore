@@ -24,6 +24,14 @@ qr_*.png
 _fw_check.txt
 _bat_probe.bat
 
+# ===== 一次性运维脚本 / 计划任务改写残留（本地使用，不入库）=====
+*.bak
+*.backup.xml
+fix_task_admin.bat
+_apply_task_elevated.ps1
+_apply_task_result.txt
+server_out.log
+
 # ===== 系统/编辑器 =====
 Thumbs.db
 desktop.ini

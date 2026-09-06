@@ -10,7 +10,7 @@
 两个服务通过本机 HTTP（`127.0.0.1:8765`）通信，均由 Windows 任务计划程序在登录时自启：
 
 - `InkBoardServer` → `inkboard/server.py --port 8765`
-- `InkBoardSyncEvents` → `inkboard/sync.bat`（定时从企微同步日程）
+- `InkBoardSyncEvents` → `pythonw.exe inkboard/sync_events.py --source wecom`（定时从企微同步日程，无窗口；日志由脚本自写到 `sync.log`）
 - `QQHomeworkBot` → `qq-homework-bot/homework_bot.py`
 
 
@@ -20,8 +20,8 @@
 inkbot/
 ├── inkboard/
 │   ├── server.py          看板 HTTP 服务
-│   ├── sync_events.py     企微日程同步
-│   ├── sync.bat / start.bat
+│   ├── sync_events.py     企微日程同步（定时任务直接调用，自带日志）
+│   ├── start.bat
 │   ├── smoke_test.py      离线冒烟测试
 │   └── web/               前端页面（显示端 + 管理端）
 └── qq-homework-bot/

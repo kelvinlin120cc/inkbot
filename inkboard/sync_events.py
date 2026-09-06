@@ -20,6 +20,9 @@ InkBoard 日程同步器 —— 把外部日历的日程推送到信息台。
 「家庭日程」组件的「显示未来几天」配置（1-14），使拉取范围与显示范围一致。
 
 Windows 计划任务里每 10~30 分钟跑一次即可，日程变更后最迟 30 秒出现在墨水屏上。
+
+计划任务（InkBoardSyncEvents）直接调用 python.exe 而非经过 .bat，避免每 10 分钟
+弹出 cmd.exe 窗口；运行日志由本脚本自己追加到同目录 sync.log。
 """
 
 import argparse
@@ -38,6 +41,12 @@ except Exception:
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_FILE = os.path.join(HERE, "events.json")
 BOARD_PATH = os.path.join(HERE, "data", "board.json")
+
+# 日志文件：原先由 sync.bat 负责追加（invoked / exit 两行 + 脚本输出 2>&1 重定向）。
+# 计划任务改为直接调用 python.exe 后（避免 cmd.exe 弹窗），改由本脚本自己写，行为保持一致。
+LOG_PATH = os.path.join(HERE, "sync.log")
+LOG_MAX_BYTES = 1024 * 1024   # 超过 1MB 时裁剪，防止每 10 分钟追加导致日志无限增长
+LOG_KEEP_LINES = 400          # 裁剪后保留的最后行数
 
 # wecom-cli 的候选安装位置（按优先级探测：托管 node 全局 bin 优先）
 NODE_DIRS = [
@@ -165,6 +174,82 @@ def from_wecom(days, include_past=0):
 
 
 # --------------------------------------------------------------------------
+# 日志
+# --------------------------------------------------------------------------
+def _now():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _trim_log(path, max_bytes, keep_lines):
+    """日志超过 max_bytes 时只保留最后 keep_lines 行。裁剪失败不影响主流程。"""
+    try:
+        if not os.path.exists(path) or os.path.getsize(path) <= max_bytes:
+            return
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("[%s] --- 日志已裁剪，仅保留最后 %d 行 ---\n" % (_now(), keep_lines))
+            f.writelines(lines[-keep_lines:])
+    except Exception:
+        pass
+
+
+class _Tee(object):
+    """把 stdout / stderr 同时写到终端与 sync.log（对齐原 .bat 的 >> sync.log 2>&1）。"""
+
+    def __init__(self, stream, fobj):
+        self.stream = stream
+        self.fobj = fobj
+
+    def write(self, data):
+        for t in (self.stream, self.fobj):
+            try:
+                t.write(data)
+            except Exception:
+                pass
+        return len(data)
+
+    def flush(self):
+        for t in (self.stream, self.fobj):
+            try:
+                t.flush()
+            except Exception:
+                pass
+
+    def isatty(self):
+        return False
+
+    def reconfigure(self, *args, **kwargs):
+        pass
+
+
+def _run_with_log():
+    """包一层：写 invoked / exit 两行时间戳，并把 main() 的输出一并落盘。"""
+    _trim_log(LOG_PATH, LOG_MAX_BYTES, LOG_KEEP_LINES)
+    try:
+        lf = open(LOG_PATH, "a", encoding="utf-8")
+    except Exception:
+        return main()
+
+    lf.write("[%s] sync_events.py invoked\n" % _now())
+    saved = (sys.stdout, sys.stderr)
+    sys.stdout = _Tee(saved[0], lf)
+    sys.stderr = _Tee(saved[1], lf)
+    try:
+        code = main()
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else 0
+    except Exception as e:
+        print("[ERROR] 未捕获异常：%r" % (e,))
+        code = 1
+    finally:
+        sys.stdout, sys.stderr = saved
+        lf.write("[%s] sync_events.py exit=%s\n" % (_now(), code))
+        lf.close()
+    return code
+
+
+# --------------------------------------------------------------------------
 # 推送
 # --------------------------------------------------------------------------
 def push(events, host, port, token, dry_run=False):
@@ -275,4 +360,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_run_with_log())
