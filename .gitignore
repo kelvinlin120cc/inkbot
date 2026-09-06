@@ -30,6 +30,8 @@ _bat_probe.bat
 fix_task_admin.bat
 _apply_task_elevated.ps1
 _apply_task_result.txt
+switch_pythonw.ps1
+switch_pythonw_result.txt
 server_out.log
 
 # ===== 系统/编辑器 =====

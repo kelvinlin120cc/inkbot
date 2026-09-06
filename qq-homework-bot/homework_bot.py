@@ -51,6 +51,19 @@ RAW_FILE = os.path.join(DATA_DIR, "homework_raw.jsonl")
 SEEN_FILE = os.path.join(DATA_DIR, "seen.json")
 LOG_FILE = os.path.join(HERE, "homework_bot.log")
 
+# pythonw.exe（计划任务无窗口启动）下没有控制台，sys.stdout/stderr 为 None，
+# 此时裸 print、第三方库输出、未捕获异常会丢失甚至报错。重定向到业务日志文件；
+# log() 通过判断 stdout 是否指向本文件来避免双写。
+if sys.stdout is None or sys.stderr is None:
+    try:
+        _bot_log = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
+        if sys.stdout is None:
+            sys.stdout = _bot_log
+        if sys.stderr is None:
+            sys.stderr = _bot_log
+    except Exception:
+        pass
+
 # 去重记录保留天数（官方可能对同一 msg_id 重复推送，必须去重）
 SEEN_KEEP_DAYS = 30
 
@@ -66,12 +79,20 @@ CFG = {}
 # --------------------------------------------------------------------------
 # 基础工具
 # --------------------------------------------------------------------------
+def _stdout_is_logfile():
+    """pythonw 重定向后 sys.stdout 指向 homework_bot.log；此时 print 即写文件。"""
+    name = getattr(sys.stdout, "name", None)
+    return bool(name) and os.path.abspath(name) == os.path.abspath(LOG_FILE)
+
+
 def log(msg):
     line = "[%s] %s" % (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
     try:
         print(line, flush=True)
     except Exception:
         pass
+    if _stdout_is_logfile():
+        return  # 输出已重定向到本日志文件，无需再 open 写第二遍
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -122,6 +143,10 @@ def load_config(require_creds=True):
 # --------------------------------------------------------------------------
 # 出站 HTTP：一律走 curl
 # --------------------------------------------------------------------------
+# pythonw（无控制台）下调控制台程序 curl 时，需 CREATE_NO_WINDOW，否则每次请求闪黑窗。
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
 def curl_run(args, timeout=30):
     """执行 curl，返回 (stdout, stderr, returncode)。"""
     try:
@@ -129,6 +154,7 @@ def curl_run(args, timeout=30):
             ["curl", "-s", "-S"] + args,
             capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=timeout,
+            creationflags=_NO_WINDOW,
         )
         return (proc.stdout or ""), (proc.stderr or ""), proc.returncode
     except Exception as e:
@@ -155,6 +181,7 @@ def post_json(url, payload, noproxy="", timeout=20, extra_headers=None):
             input=raw,
             capture_output=True,
             timeout=timeout,
+            creationflags=_NO_WINDOW,
         )
         out = (proc.stdout or b"").decode("utf-8", "replace")
         err = (proc.stderr or b"").decode("utf-8", "replace")

@@ -30,6 +30,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import urllib.request
 
+# pythonw.exe（计划任务无窗口启动）下没有控制台，sys.stdout/stderr 为 None，
+# 此时 print、HTTP 访问日志（log_message 写 stderr）、未捕获异常会全部丢失甚至报错。
+# 检测到无控制台时把输出重定向到同目录 server.log，便于后台运行时排查。
+if sys.stdout is None or sys.stderr is None:
+    try:
+        _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.log")
+        # 启动时裁剪：超过 1MB 仅保留最后 400 行，防止常驻运行（墨水屏轮询）日志无限增长
+        try:
+            if os.path.exists(_log_path) and os.path.getsize(_log_path) > 1024 * 1024:
+                with open(_log_path, "r", encoding="utf-8", errors="replace") as _f:
+                    _tail = _f.readlines()[-400:]
+                with open(_log_path, "w", encoding="utf-8") as _f:
+                    _f.write("--- 日志已裁剪，仅保留最后 400 行 ---\n")
+                    _f.writelines(_tail)
+        except Exception:
+            pass
+        _srv_log = open(_log_path, "a", encoding="utf-8", buffering=1)
+        if sys.stdout is None:
+            sys.stdout = _srv_log
+        if sys.stderr is None:
+            sys.stderr = _srv_log
+    except Exception:
+        pass
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
