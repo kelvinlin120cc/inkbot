@@ -141,7 +141,7 @@ Register-ScheduledTask -TaskName "InkBoardSyncEvents" -Action $a3 -Trigger $trg 
 | InkBoard 看板服务（server.py） | ✅ | ✅ | ✅ |
 | QQ 作业机器人（homework_bot.py） | ✅ | ✅ | ✅（需系统有 `curl`） |
 | 管理端 / 显示端网页 | ✅ | ✅ | ✅ |
-| 企微日程自动同步（sync_events.py --source wecom） | ✅ | ⚠️ 见下 | ⚠️ 见下 |
+| 企微日程自动同步（sync_events.py --source wecom） | ✅ | ✅ | ✅（需 Node + @wecom/cli） |
 | 日程/作业**手动模式** | ✅ | ✅ | ✅ |
 | 无窗口后台运行 | `pythonw.exe` | `pythonw`/`nohup` | `nohup`/systemd |
 | 开机自启 | 任务计划程序 | launchd | systemd |
@@ -150,10 +150,11 @@ Register-ScheduledTask -TaskName "InkBoardSyncEvents" -Action $a3 -Trigger $trg 
 
 - **Python**：3.13（3.9+ 亦可）。inkboard 纯标准库、无需装包；QQ 机器人需 `pip install -r qq-homework-bot/requirements.txt`（`qq-botpy`）。
 - **curl**：QQ 机器人所有出站 HTTP 都调用系统 `curl`。Windows 10+ 与 macOS 自带；**精简版 Linux 需先装**：`sudo apt install curl`（或 `yum install curl`）。
-- **企微日程同步（仅 Windows 开箱可用）**：`sync_events.py` 通过 Node 跑 `@wecom/cli` 拉企微日历，其安装路径探测列表 `NODE_DIRS` 目前只写了 Windows 路径并查找 `node.exe`。在 macOS/Linux 上：
-  - 先装 Node 并全局安装：`npm i -g @wecom/cli`，按 CLI 引导授权「日程」权限；
-  - 因代码暂未内置类 Unix 路径探测，需在 `inkboard/sync_events.py` 的 `NODE_DIRS` 里追加你的 Node 安装目录，并把探测的可执行名从 `node.exe` 改为 `node`（或把 `node` 加入 PATH 后自行调用）。
-  - **不折腾**：日程改用管理端**手动模式**即可完全跳过 Node / 企微依赖，看板其余功能不受影响。
+- **企微日程自动同步（跨平台）**：`sync_events.py` 通过 Node 跑 `@wecom/cli` 拉企微日历。node 与 wecom.js 的探测已做跨平台：先查 Windows 托管 node 的约定目录，再在 PATH 中找 `node`/`node.exe`，并通过 `npm root -g`、`require.resolve('@wecom/cli')` 及 node 安装前缀下的全局 `node_modules` 定位包。因此三个平台都只需：
+  - 装 Node，全局安装 CLI：`npm i -g @wecom/cli`（确保 `node`、`npm` 在 PATH 中）；
+  - 按 CLI 引导登录，并在企业微信「工作台 → 智能机器人」授权机器人「日程」权限；
+  - 跑 `python3 sync_events.py --source wecom --dry-run` 能拉到日程即成功。
+  - 不想装 Node：日程改用管理端**手动模式**即可完全跳过企微依赖，看板其余功能不受影响。
 - **无窗口 / 自启**：`CREATE_NO_WINDOW`、`pythonw.exe`、`.bat`、任务计划程序都是 Windows 专用；代码已用 `getattr(subprocess, "CREATE_NO_WINDOW", 0)` 安全降级，非 Windows 下无副作用。macOS/Linux 用 `nohup python3 xxx.py &` 后台跑，自启用 launchd（macOS）或 systemd（Linux）。
 
 ### macOS / Linux 手动运行（开发/调试）

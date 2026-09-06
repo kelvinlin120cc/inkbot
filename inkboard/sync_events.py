@@ -48,13 +48,94 @@ LOG_PATH = os.path.join(HERE, "sync.log")
 LOG_MAX_BYTES = 1024 * 1024   # 超过 1MB 时裁剪，防止每 10 分钟追加导致日志无限增长
 LOG_KEEP_LINES = 400          # 裁剪后保留的最后行数
 
-# wecom-cli 的候选安装位置（按优先级探测：托管 node 全局 bin 优先）
-NODE_DIRS = [
+# wecom-cli（@wecom/cli）通过 Node 运行。探测跨平台：
+#   1) Windows 托管 node 的已知安装目录（本机 .workbuddy 约定，兜底）；
+#   2) PATH 中的 node，配合 `npm root -g` 得到的全局 node_modules 目录；
+#   3) node 可执行文件所在前缀下的全局 node_modules（npm 全局布局）。
+# 找到「node 可执行 + @wecom/cli/bin/wecom.js」即返回。
+IS_WIN = (os.name == "nt") or sys.platform.startswith("win")
+NODE_EXE = "node.exe" if IS_WIN else "node"
+WECOM_JS_TAIL = os.path.join("@wecom", "cli", "bin", "wecom.js")
+
+# Windows 托管 node 的候选目录（其它平台忽略）
+_WIN_NODE_DIRS = [
     r"C:\Users\Kelvinlin\.workbuddy\binaries\node\versions\22.22.2-2",
     r"C:\Users\Kelvinlin\.workbuddy\binaries\node\versions\22.22.2",
     r"C:\Program Files\nodejs",
 ]
-WECOM_JS_TAIL = os.path.join("node_modules", "@wecom", "cli", "bin", "wecom.js")
+
+
+def _wecom_js_under(node_modules_dir):
+    """给定某个 node_modules 目录，返回其中的 wecom.js 路径，不存在返回 None。"""
+    p = os.path.join(node_modules_dir, WECOM_JS_TAIL)
+    return p if os.path.exists(p) else None
+
+
+def _run_quiet(cmd):
+    """跨平台静默执行命令，返回 stdout 字符串（失败返回 ""）。"""
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8",
+            timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return (proc.stdout or "").strip()
+    except Exception:
+        return ""
+
+
+def _global_node_modules(node_exe):
+    """用 node 解析全局 node_modules 目录（npm root -g），返回候选列表。"""
+    cands = []
+    out = _run_quiet([node_exe, "-e",
+                      "try{console.log(require('path').dirname(require.resolve('@wecom/cli/package.json')))}catch(e){}"])
+    if out and os.path.isdir(out):
+        # 直接定位到包目录，其 bin/wecom.js
+        js = os.path.join(out, "bin", "wecom.js")
+        if os.path.exists(js):
+            cands.append(os.path.dirname(os.path.dirname(js)))  # node_modules
+    rootg = _run_quiet(["npm", "root", "-g"])
+    if rootg and os.path.isdir(rootg):
+        cands.append(rootg)
+    # node 可执行文件所在前缀：Windows=<prefix>/node.exe → <prefix>/node_modules；
+    # macOS/Linux=<prefix>/bin/node → <prefix>/lib/node_modules
+    bindir = os.path.dirname(os.path.abspath(node_exe))
+    cands.append(os.path.join(os.path.dirname(bindir), "lib", "node_modules"))
+    cands.append(os.path.join(bindir, "node_modules"))
+    return cands
+
+
+def _which(name):
+    """shutil.which 的封装，PATH 中查找可执行文件（Windows 自动补 PATHEXT）。"""
+    import shutil
+    return shutil.which(name)
+
+
+def find_wecom():
+    """探测 node 可执行与 wecom.js，返回 (node_exe, wecom_js)；找不到返回 (None, None)。"""
+    tried = []
+
+    # 1) Windows 已知托管目录（node.exe + 同级 node_modules）
+    if IS_WIN:
+        for base in _WIN_NODE_DIRS:
+            node = os.path.join(base, "node.exe")
+            if not os.path.exists(node):
+                continue
+            js = _wecom_js_under(os.path.join(base, "node_modules"))
+            if js:
+                return node, js
+            tried.append(base)
+
+    # 2) PATH 中的 node（绝对路径优先，找不到则退回命令名 "node"）
+    node = _which(NODE_EXE) or _which("node")
+    if node:
+        for nm in _global_node_modules(node):
+            js = _wecom_js_under(nm)
+            if js:
+                return node, js
+            tried.append(nm)
+        # node 本身可能就在全局 bin，包在其前缀的 node_modules 下已在上面覆盖
+
+    return None, None
 
 
 def today(offset=0):
@@ -82,21 +163,6 @@ def from_demo():
         {"title": "家长会", "date": today(1), "start": "09:30", "end": "", "source": "demo"},
         {"title": "全家出游", "date": today(3), "start": "", "end": "", "source": "demo"},
     ]
-
-
-def find_wecom():
-    """探测 @wecom/cli 的 node.exe 与 wecom.js 路径，找不到返回 (None, None)。
-
-    优先用全局 bin（wecom-cli.cmd），这里直接定位其 node + wecom.js，避免依赖 PATH。
-    """
-    for base in NODE_DIRS:
-        node = os.path.join(base, "node.exe")
-        if not os.path.exists(node):
-            continue
-        js = os.path.join(base, WECOM_JS_TAIL)
-        if os.path.exists(js):
-            return node, js
-    return None, None
 
 
 def from_wecom(days, include_past=0):
