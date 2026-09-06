@@ -10,14 +10,6 @@
 | **qq-homework-bot/** | QQ 作业收集机器人。手机 QQ 转发老师作业消息给机器人，自动解析（可选大模型整理）后写入 InkBoard「家庭作业」组件。                                                       |
 
 两个服务通过本机 HTTP（`127.0.0.1:8765`）通信，均由 Windows 任务计划程序在登录时自启。
-任务统一用 `pythonw.exe` 无窗口启动（不弹控制台）；程序检测到无控制台时会把 stdout/stderr 重定向到各自日志文件，便于后台排查。
-
-- `InkBoardServer` → `pythonw.exe inkboard/server.py --port 8765`（日志 → `inkboard/server.log`）
-- `InkBoardSyncEvents` → `pythonw.exe inkboard/sync_events.py --source wecom`（每 10 分钟从企微同步日程；日志自写到 `inkboard/sync.log`）
-- `QQHomeworkBot` → `pythonw.exe qq-homework-bot/homework_bot.py`（日志 → `qq-homework-bot/homework_bot.log`）
-
-> 手动调试时仍可用各目录 `start.bat`（走 `python.exe` 带控制台，可直接看输出）。
-> 注意：pythonw 下程序内部拉起的控制台子进程（node/curl）已加 `CREATE_NO_WINDOW`，否则仍会闪黑窗。
 
 ## 目录结构
 
@@ -140,7 +132,7 @@ Register-ScheduledTask -TaskName "InkBoardSyncEvents" -Action $a3 -Trigger $trg 
 
 > 提示：手机/电脑管理端用 `/admin`，墨水屏显示端用 `/`（根路径）。两者同一份数据，管理端改完墨水屏最迟几十秒自动更新。若墨水屏打不开，检查它与主机是否在同一 WiFi、Windows 防火墙是否放行（首次启动会弹窗，允许「专用网络」）。
 
----
+***
 
 ## 支持的操作系统
 
